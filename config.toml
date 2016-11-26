@@ -1,0 +1,14 @@
+siteTitle = "Blog by Tadeu Zagallo"
+siteDescr = "I'm a Software Engineer. I like programming languages, VMs & compilers. I work at Uber. I did some React Native stuff at Facebook."
+siteAuthor = "Tadeu Zagallo"
+
+siteTwitterUrl = "https://twitter.com/tadeuzagallo"
+siteGithubUrl = "https://github.com/tadeuzagallo"
+siteEmailUrl = "mailto:tadeuzagallo@gmail.com"
+
+googleAnalyticsId = "UA-47264623-1"
+
+linkPrefix = "/blog"
+
+twitterUsername = "tadeuzagallo"
+siteUrl = "http://tadeuzagallo.com"
