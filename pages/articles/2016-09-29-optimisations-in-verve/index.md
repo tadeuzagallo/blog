@@ -3,7 +3,7 @@ layout: post
 title: "Optimisations in Verve"
 date: 2016-09-30 10:47:06
 description: 'Premature optimisations for fun!'
-image: '/assets/img/verve-logo.png'
+image: './static/img/verve-logo.jpg'
 path: /optimisations-in-verve/
 category:
 - interpreter

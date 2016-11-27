@@ -4,7 +4,7 @@ title: "Introducing Verve"
 date: 2016-07-08 17:03:12
 description: An experimental, minimalistic, static, functional language with zero dependencies.
 path: /introducing-verve/
-image: '/assets/img/verve-logo.png'
+image: './static/img/verve-logo.jpg'
 category:
 - verve
 - fp

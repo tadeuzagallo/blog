@@ -24,17 +24,17 @@ class SiteNav extends React.Component {
               </p>
               <ul>
                 <li>
-                  <a href="http://tadeuzagallo.com/verve-lang">
+                  <a href="/verve-lang">
                     Verve (programming language)
                   </a>
                 </li>
                 <li>
-                  <a href="http://tadeuzagallo.com/">
+                  <a href="/">
                     zsh.js
                   </a>
                 </li>
                 <li>
-                  <a href="http://tadeuzagallo.com/GithubPulse">
+                  <a href="/GithubPulse">
                     Github Pulse
                   </a>
                 </li>

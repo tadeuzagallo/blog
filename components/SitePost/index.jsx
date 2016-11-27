@@ -6,7 +6,7 @@ import { prefixLink } from 'gatsby-helpers'
 import { config } from 'config'
 import DisqusThread from 'react-disqus-thread'
 import ReadNext from '../ReadNext'
-import profilePic from '../../pages/photo.jpg'
+import profilePic from '../../static/img/logo.jpg'
 import './style.css'
 import '../../static/css/highlight.css'
 
