@@ -21,13 +21,17 @@ module.exports = React.createClass({
         const title = data.title || config.siteTitle;
         const description = data.description || config.siteDescr;
         const url = root + (location ? location.pathname : prefixLink('/'));
-        const image = root + (data.image ? require(data.image) : logo);
 
         const font = <link href='https://fonts.googleapis.com/css?family=Roboto:400,400italic,500,700&subset=latin' rel='stylesheet' type='text/css' />
 
         let css = '';
+        let image = root + logo;
         if (process.env.NODE_ENV === 'production') {
             css = <style dangerouslySetInnerHTML={ {    __html: require('!raw!./public/styles.css')} } />
+            if (data.image) {
+              var req = require.context('./static/img', true, /.*\.(png|jpg)$/);
+              image = root + req('./' + data.image);
+            }
         }
 
         return (
