@@ -27,11 +27,14 @@ class SitePost extends React.Component {
             <div>
               { home }
               <div className='blog-single'>
-                <div className='text'>
+                <div className="header">
                   <h1>{ post.title }</h1>
+                  <p className="desc">{ post.description }</p>
                   <div className='date-published'>
                     <em>{ moment(post.date).format('D MMM YYYY') }</em>
                   </div>
+                </div>
+                <div className='text'>
                   <div dangerouslySetInnerHTML={ {    __html: post.body} } />
                 </div>
                 <div className='footer'>
