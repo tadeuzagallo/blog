@@ -3,7 +3,7 @@ import DocumentTitle from 'react-document-title'
 import { prefixLink } from 'gatsby-helpers'
 import { config } from 'config'
 import logo from './static/img/logo.jpg'
-import favico from './static/img/favico.png'
+import favico from './static/img/favico.ico'
 
 const BUILD_TIME = new Date().getTime()
 
