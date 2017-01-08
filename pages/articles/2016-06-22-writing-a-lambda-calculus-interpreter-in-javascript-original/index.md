@@ -3,12 +3,13 @@ layout: post
 title: "A λ-calculus interpreter"
 date: 2016-06-22 00:38:14
 description:  in less than 200 lines of JavaScript
-path: /writing-a-lambda-calculus-interpreter-in-javascript/
+path: /writing-a-lambda-calculus-interpreter-in-javascript-original/
 category:
 - interpreter
 - fp
 - javascript
 twitter_text: "A λ-calculus interpreter in less than 200 lines of JavaScript"
+hide: true
 ---
 
 Recently [I tweeted about falling in love with Lambda Calculus][Tweet], and how simple and powerful it is.
