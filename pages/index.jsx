@@ -13,9 +13,13 @@ class SiteIndex extends React.Component {
     render() {
         const pageLinks = []
         // Sort pages.
-        const sortedPages = sortBy(this.props.route.pages, (page) => access(page, 'data.date')
+      const sortedPages = sortBy(
+        this.props.route.pages,
+        (page) => access(page, 'data.date')
         ).reverse()
-        sortedPages.forEach((page) => { if (access(page, 'file.ext') === 'md' && access(page, 'data.layout') === 'post') { const title = access(page, 'data.title') || page.path
+        sortedPages.forEach((page) => {
+          if (access(page, 'file.ext') === 'md' && access(page, 'data.layout') === 'post') {
+                const title = access(page, 'data.title') || page.path
                 const description = access(page, 'data.description')
                 const datePublished = access(page, 'data.date')
                 const category = access(page, 'data.category')
