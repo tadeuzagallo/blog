@@ -14,7 +14,7 @@ class SiteIndex extends React.Component {
         const pageLinks = []
         // Sort pages.
       const sortedPages = sortBy(
-        this.props.route.pages,
+        this.props.route.pages.filter(page => !access(page, 'data.hide')),
         (page) => access(page, 'data.date')
         ).reverse()
         sortedPages.forEach((page) => {
