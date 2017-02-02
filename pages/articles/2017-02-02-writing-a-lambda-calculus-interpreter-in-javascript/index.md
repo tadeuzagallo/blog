@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "A λ-calculus interpreter"
-date: 2017-01-09 18:38:14
+date: 2017-02-02 23:38:14
 description: in less than 300 lines of JavaScript
 path: /writing-a-lambda-calculus-interpreter-in-javascript/
 category:
@@ -11,7 +11,7 @@ category:
 twitter_text: "A λ-calculus interpreter in less than 300 lines of JavaScript"
 ---
 
-*Note*: this is a big refactor of a previous post. I was planning to make this into a series, when I realised that first I had to make some improvements to this initial post to have a better structure. Well, this is the result, and I hope you enjoy. Alternatively, the original version can be seen [here][original post].
+*Note*: this is a big refactor of a previous post. I was planning on making this into a series, when I realised that first I had to make some improvements to this initial post to have a better structure. Well, this is the result, and I hope you enjoy. Alternatively, the original version can be found [here][original post].
 
 I had heard about lambda calculus, but it wasn't until [recently][Tweet], when I started reading [Types and Programming Languages][TaPL], that I could really see the beauty of it. So simple, and yet so powerful.
 
