@@ -5,7 +5,7 @@ import { config } from 'config'
 import logo from './static/img/logo.jpg'
 import favico from './static/img/favico.ico'
 
-const BUILD_TIME = new Date().getTime()
+const BUILD_TIME = Date.now()
 
 module.exports = React.createClass({
     displayName: 'HTML',
@@ -22,7 +22,6 @@ module.exports = React.createClass({
         const description = data.description || config.siteDescr;
         const url = root + (location ? location.pathname : prefixLink('/'));
 
-        const font = <link href='https://fonts.googleapis.com/css?family=Roboto:400,400italic,500,700&subset=latin' rel='stylesheet' type='text/css' />
 
         let css = '';
         let image = root + logo;
@@ -77,8 +76,7 @@ module.exports = React.createClass({
             </head>
             <body>
               <div id="react-mount" dangerouslySetInnerHTML={ {    __html: this.props.body} } />
-              <script async=true src={ prefixLink(`/bundle.js?t=${BUILD_TIME}`) } />
-              { font }
+              <script async="true" src={ prefixLink(`/bundle.js?t=${BUILD_TIME}`) } />
             </body>
             </html>
         )

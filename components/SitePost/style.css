@@ -20,13 +20,13 @@
 .blog-post time {
 	font-size: 14px;
 	color: #222;
-	font-weight: 500;
+	font-weight: 600;
 	text-transform: uppercase;
 }
 .blog-post .blog-category {
 	font-size: 14px;
 	color: #f7a046;
-	font-weight: 500;
+	font-weight: 600;
 	text-transform: uppercase;
 }
 .blog-post .readmore {
