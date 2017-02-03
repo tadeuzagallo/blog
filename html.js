@@ -72,13 +72,13 @@ module.exports = React.createClass({
               {/* Android Lolipop Theme Color */}
               <meta name="theme-color" content="#3e3c3c" />
 
-              { font }
               { css }
 
             </head>
             <body>
               <div id="react-mount" dangerouslySetInnerHTML={ {    __html: this.props.body} } />
-              <script src={ prefixLink(`/bundle.js?t=${BUILD_TIME}`) } />
+              <script async=true src={ prefixLink(`/bundle.js?t=${BUILD_TIME}`) } />
+              { font }
             </body>
             </html>
         )
