@@ -66,6 +66,8 @@ module.exports = React.createClass({
               <meta itemprop="description" content={ description } />
               <meta itemprop="image" content={ image } />
 
+              <link rel="manifest" href="/blog/manifest.json" />
+
               {/* Favicon */}
               <link rel="shortcut icon" href={ favico } type="image/png" />
               {/* Android Lolipop Theme Color */}
