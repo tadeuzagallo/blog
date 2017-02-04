@@ -22,11 +22,16 @@
 .blog-social ul > li > a {
 	border-bottom: 0;
 }
-.blog-social ul > li > a > i {
-	color: #606060;
-	font-size: 14px;
-	line-height: 24px;
+.blog-social ul > li > a > svg {
+  margin-top: 5px;
+  width: 14px;
+  height: 14px;
 }
-.blog-social ul > li:hover a > i {
-	color: #444;
+
+.blog-social ul > li a > svg > path {
+  fill: #606060;
+}
+
+.blog-social ul > li:hover a > svg > path {
+  fill: #444;
 }

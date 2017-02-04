@@ -14,11 +14,6 @@ exports.modifyWebpackConfig = function(config, env) {
         ]
     })
 
-    config.loader('svg', {
-       test: /\.(svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
-       loader: 'file-loader',
-    })
-
   config.plugin('copy-webpack-plugin', function () {
     return new CopyWebpackPlugin([
       { from: '../static/img/icons', to: 'icons' },
