@@ -79,6 +79,11 @@ module.exports = React.createClass({
             <body>
               <div id="react-mount" dangerouslySetInnerHTML={ {    __html: this.props.body} } />
               <script async="true" src={ prefixLink(`/bundle.js?t=${BUILD_TIME}`) } />
+              <script dangerouslySetInnerHTML={{__html:`
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.register('${prefixLink('/service-worker.js')}');
+                }
+              `}}></script>
             </body>
             </html>
         )

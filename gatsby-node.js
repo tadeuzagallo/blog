@@ -18,6 +18,7 @@ exports.modifyWebpackConfig = function(config, env) {
     return new CopyWebpackPlugin([
       { from: '../static/img/icons', to: 'icons' },
       { from: '../manifest.json' },
+      { from: '../service-worker.js' },
     ])
   })
 
