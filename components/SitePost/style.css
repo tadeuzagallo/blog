@@ -40,18 +40,6 @@
 .blog-single .text a {
   border-bottom: 1px solid black;
 }
-.blog-single .share i.fa {
-  display: inline-block;
-  margin-left: 25px;
-}
-.blog-single .footer img {
-	display: inline-block;
-  float: left;
-  margin-right: 30px;
-	margin-bottom: 0;
-	border-radius: 5%;
-	background-clip: padding-box;
-}
 .blog-single {
 	max-width: 945px;
 	margin-left: auto;
@@ -60,7 +48,6 @@
 .blog-single h1 {
 	text-align: center;
   margin-top: 100px;
-  line-height: 15px;
 }
 .blog-single .desc {
 	text-align: center;
@@ -137,4 +124,30 @@
 		width: 85px;
 		display: block;
 	}
+}
+
+.blog-single .share {
+  display: flex;
+  align-items: center;
+}
+.blog-single .share a {
+  display: inline-block;
+  margin-left: 20px;
+	border-radius: 5%;
+  width: 24px;
+  height: 24px;
+  padding-left: 3px;
+  background-color: #f4f4f4;
+}
+.share a > svg {
+  width: 18px;
+  height: 18px;
+}
+
+.share a > svg > path {
+  fill: #606060;
+}
+
+.share a:hover > svg > path {
+  fill: #444;
 }
