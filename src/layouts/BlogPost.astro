@@ -1,0 +1,114 @@
+---
+
+import i18next from 'i18next';
+import moment from 'moment';
+
+import Head from '../components/Head.astro';
+
+import prefixLink from '../utils/prefixLink.ts';
+
+import enTranslations from '../pages/en/translation.json';
+/*import ptTranslations from '../pages/pt/translation.json';*/
+import config from '../config.json';
+import smallLogo from '../../public/images/logo-small.jpg';
+
+const { post } = Astro.props;
+const { title, lang, description, date, slug, category, twitter_text, content } = post;
+const { html } = content;
+
+i18next.init({
+  lng: lang,
+  debug: false,
+  resources: {
+    en: { translation: enTranslations },
+    /*pt: { translation: ptTranslations },*/
+  }
+});
+
+const { t } = i18next;
+
+const categories = Array.isArray(category) ? category.join(',') : (category || '');
+const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${Astro.request.url.href} via @tadeuzagallo&hashtags=${category}`;
+---
+
+<html {lang}>
+	<head>
+		<Head title={t('siteTitle')} type="website" description={t('siteDescription')} permalink={prefixLink('/')} />
+		<link rel="stylesheet" href={Astro.resolve('../styles/blog.css')} />
+		<link rel="stylesheet" href={Astro.resolve('../styles/code.css')} />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+      .wrapper {
+        max-width: 1070px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .content {
+        padding: 40px 20px;
+      }
+
+      :global(a) {
+        color: #b51;
+        text-decoration: underline;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header p {
+        color: #444;
+      }
+
+      .gohome {
+      }
+
+      .date-published {
+        color: #555;
+      }
+    </style>
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <a class='gohome' href={prefixLink('/')}> ← {t('home')}</a>
+      <div class='blog-post'>
+        <header class="header">
+          <h1>{title}</h1>
+          <p class="desc">{description}</p>
+          <time class='date-published' dateTime={moment(date).format('MMMM D, YYYY')}>
+            {moment(date).format('D MMM YYYY')}
+          </time>
+        </header>
+        <div class='blog-post-text'>
+          {html}
+        </div>
+        <footer class='footer'>
+          <!-- <Share post={post} {...this.props} /> -->
+          <hr/>
+          <div id="disqus_thread"></div>
+            <script data-title={title} data-slug={slug}>
+              var disqus_config = function () {
+                const { title, slug } = document.currentScript.dataset;
+                this.page.title = title;
+                this.page.identifier = slug;
+                this.page.url = `https://tadeuzagallo.com/blog/${slug}`; 
+              };
+              (function() { // DON'T EDIT BELOW THIS LINE
+              var d = document, s = d.createElement('script');
+              s.src = 'https://tadeuzagallo.disqus.com/embed.js';
+              s.setAttribute('data-timestamp', +new Date());
+              (d.head || d.body).appendChild(s);
+              })();
+          </script>
+          <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>

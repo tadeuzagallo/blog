@@ -1,0 +1,17 @@
+---
+
+const { page } = Astro.props;
+
+---
+
+<script data-page={page}>
+  const { page } = document.currentScript.dataset;
+  let language = localStorage.getItem('lang');
+  if (!language) {
+    /*if (/^pt\b/.test(navigator.language))*/
+      /*language = 'pt';*/
+    /*else*/
+      language = 'en';
+  }
+  window.location.pathname = `/blog/${language}${page}`;
+</script>

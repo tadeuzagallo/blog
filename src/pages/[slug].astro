@@ -1,0 +1,17 @@
+---
+
+import BlogPost from '../layouts/BlogPost.astro';
+
+
+export function getStaticPaths() {
+  const posts = Astro.fetchContent('../posts/*.md');
+  const routes = posts.map(post => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+  return routes;
+}
+
+---
+
+<BlogPost {...Astro.props} />

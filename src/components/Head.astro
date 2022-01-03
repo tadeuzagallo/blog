@@ -1,0 +1,45 @@
+---
+
+import config from '../config.json';
+
+import favicon from '../../public/favicon.ico';
+import smallLogo from '../../public/images/logo-small.jpg';
+
+export interface Props {
+	title: string;
+	type: string;
+	image: string;
+	permalink: string;
+	description: string;
+}
+let { title, type, image, description, permalink } = Astro.props;
+
+const logo = `${config.siteUrl}${config.linkPrefix}${smallLogo}`;
+permalink = `${config.siteUrl}${config.linkPrefix}${permalink}`;
+
+---
+
+<!-- Global Metadata -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width" />
+<link rel="icon" type="image/x-icon" href={favicon} />
+
+<!-- Primary Meta Tags -->
+<title>{title}</title>
+<meta name="title" content={title} />
+<meta name="description" content={description} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:title" content={title} />
+<meta property="og:type" content={type} />
+<meta property="og:url" content={permalink} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={logo} />
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={permalink} />
+<meta property="twitter:title" content={title} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={logo} />
+<meta property="twitter:site" content={`@${config.twitterUsername}`} />

@@ -1,0 +1,55 @@
+---
+
+import i18next from 'i18next';
+
+import Head from '../components/Head.astro';
+import Sidebar from '../components/Sidebar.astro';
+
+import prefixLink from '../utils/prefixLink.ts';
+
+import config from '../config.json';
+
+const { lang, translation } = Astro.props;
+
+i18next.init({
+  lng: 'en',
+  debug: false,
+  resources: {
+    en: { translation }
+  }
+});
+
+const { t } = i18next;
+
+---
+
+<html {lang}>
+	<head>
+		<Head title={t('siteTitle')} type="website" description={t('siteDescription')} permalink={prefixLink('/')} />
+		<link rel="stylesheet" href={Astro.resolve('../styles/blog.css')} />
+
+    <style>
+      .wrapper {
+        display: grid;
+        grid-template-columns: auto 65%;
+        column-gap: 30px;
+        max-width: 1070px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .content {
+        padding: 40px 20px;
+      }
+    </style>
+
+  </head>
+  <body>
+    <div class="wrapper">
+      <Sidebar {...this.props} {t} />
+      <main class="content">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

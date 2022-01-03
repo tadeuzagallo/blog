@@ -1,0 +1,11 @@
+---
+
+import PostLink from "./PostLink.astro";
+
+const { posts } = Astro.props;
+
+---
+
+{posts.map(post => (
+  <PostLink {post} />
+))}

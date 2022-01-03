@@ -1,0 +1,76 @@
+---
+
+import SiteLinks from "./SiteLinks.astro"
+import SocialLinks from "./SocialLinks.astro"
+
+import prefixLink from '../utils/prefixLink.ts';
+
+import config from '../config.json';
+import smallLogo from '../../public/images/logo-small.jpg';
+
+const { t } = Astro.props;
+
+/*const {location, children} = this.props*/
+/*const isHome = location.pathname === prefixLink('/')*/
+
+---
+
+<style>
+
+.sidebar .sidebar-inner {
+	position: relative;
+	padding: 40px;
+}
+.sidebar .sidebar-inner:after {
+	background: #eee;
+	background: linear-gradient(to bottom, #eee 0%, #eee 48%, #fff 100%);
+	position: absolute;
+	content: '';
+	width: 1px;
+	height: 540px;
+	top: 30px;
+	right: 0px;
+	bottom: 0;
+}
+.sidebar .sidebar-inner img {
+	display: inline-block;
+	margin-bottom: 0;
+	border-radius: 5%;
+	background-clip: padding-box;
+}
+.sidebar .sidebar-inner h1, .sidebar .sidebar-inner h2 {
+	margin: 20px 0 10px;
+}
+.sidebar .sidebar-inner p {
+	color: #555;
+	font-size: 18px;
+	line-height: 26px;
+	margin-bottom: 26px;
+}
+.sidebar .sidebar-inner p.copyright {
+	color: #666;
+	font-size: 14px;
+}
+</style>
+
+<div class='sidebar'>
+  <div class='sidebar-inner'>
+    <div class='blog-details'>
+        <header>
+          <a href={prefixLink('/')}>
+            <img src={smallLogo} alt="logo" width='75' height='75' />
+          </a>
+          <h2>
+            <a href={prefixLink('/')}>{config.siteAuthor}</a>
+          </h2>
+          <p>{t('siteDescription')}</p>
+        </header>
+    </div>
+    <div class='blog-options'>
+      <SiteLinks {t} />
+      <footer>
+        <SocialLinks {...this.props}/>
+      </footer>
+    </div>
+  </div>
+</div>

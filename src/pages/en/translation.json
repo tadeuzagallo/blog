@@ -1,0 +1,11 @@
+{
+  "siteTitle": "Blog by Tadeu Zagallo",
+  "siteDescription": "I'm a Software Engineer. I like programming languages, VMs & compilers. I work at Uber. I did some React Native stuff at Facebook.",
+
+  "menu-posts": "Posts",
+  "menu-about": "About me",
+  "menu-projects": "Some of my projects",
+  "menu-verve": "Verve (programming language)",
+
+  "home": "Home"
+}

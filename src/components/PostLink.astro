@@ -1,0 +1,57 @@
+---
+
+import moment from 'moment';
+
+import prefixLink from '../utils/prefixLink.ts';
+
+const { post } = Astro.props;
+const category = Array.isArray(post.category) ? post.category.join(', ') : post.category;
+
+---
+
+<style>
+.blog-post {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.blog-post time, .blog-category {
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.blog-category {
+  margin-left: 5px;
+  color: #b51;
+}
+
+.readmore {
+  color: #b51;
+  border-bottom: 1px solid #b51;
+}
+
+.post-title {
+  font-size: 34px;
+  margin-top: 5px;
+  margin-bottom: 0px;
+}
+
+.gradient-hr {
+  margin-top: 20px;
+}
+
+</style>
+
+<div class='blog-post'>
+  <a href={prefixLink(`/${post.slug}`)}>
+    <time dateTime={moment(post.date).format('MMMM D, YYYY')}>
+      {moment(post.date).format('MMMM YYYY')}
+    </time>
+    <span class='blog-category'>{category}</span>
+    <h2 class="post-title">{post.title}</h2>
+    <p>{post.description}<p/>
+  </a>
+  <a class='readmore' href={prefixLink(`/${post.slug}`)}>Read</a>
+  <hr class="gradient-hr" />
+</div>

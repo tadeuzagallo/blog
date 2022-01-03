@@ -1,0 +1,19 @@
+---
+
+let { href, text } = Astro.props;
+
+let { pathname } = Astro.request.url;
+
+let className;
+if (href.includes('about') === pathname.includes('about'))
+  className = 'active';
+
+---
+
+<style>
+.active {
+  border-bottom: 1px solid;
+}
+</style>
+
+<a class={className} {href}>{text}</a>
