@@ -27,13 +27,14 @@ i18next.init({
 
 const { t } = i18next;
 
+const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 const categories = Array.isArray(category) ? category.join(',') : (category || '');
-const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${Astro.request.url.href} via @tadeuzagallo&hashtags=${category}`;
+const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${permalink} via @tadeuzagallo&hashtags=${categories}`;
 ---
 
 <html {lang}>
 	<head>
-		<Head title={t('siteTitle')} type="website" description={t('siteDescription')} permalink={prefixLink('/')} />
+    <Head title={`${title} by Tadeu Zagallo`} type="article" description={description} />
 		<link rel="stylesheet" href={Astro.resolve('../styles/blog.css')} />
 		<link rel="stylesheet" href={Astro.resolve('../styles/code.css')} />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -92,12 +93,12 @@ const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${As
           <!-- <Share post={post} {...this.props} /> -->
           <hr/>
           <div id="disqus_thread"></div>
-            <script data-title={title} data-slug={slug}>
+            <script data-title={title} data-slug={slug} data-permalink={permalink}>
               var disqus_config = function () {
-                const { title, slug } = document.currentScript.dataset;
+                const { title, slug, permalink } = document.currentScript.dataset;
                 this.page.title = title;
                 this.page.identifier = slug;
-                this.page.url = `https://tadeuzagallo.com/blog/${slug}`; 
+                this.page.url = permalink; 
               };
               (function() { // DON'T EDIT BELOW THIS LINE
               var d = document, s = d.createElement('script');

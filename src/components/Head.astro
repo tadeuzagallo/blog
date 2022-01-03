@@ -12,10 +12,12 @@ export interface Props {
 	permalink: string;
 	description: string;
 }
-let { title, type, image, description, permalink } = Astro.props;
+const { title, type, image, description } = Astro.props;
 
-const logo = `${config.siteUrl}${config.linkPrefix}${smallLogo}`;
-permalink = `${config.siteUrl}${config.linkPrefix}${permalink}`;
+const urlWithoutTrailingSlash = Astro.site.href.replace(/\/$/, '');
+const logo = `${urlWithoutTrailingSlash}${smallLogo}`;
+
+const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 
 ---
 
@@ -42,4 +44,4 @@ permalink = `${config.siteUrl}${config.linkPrefix}${permalink}`;
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
 <meta property="twitter:image" content={logo} />
-<meta property="twitter:site" content={`@${config.twitterUsername}`} />
+<meta property="twitter:site" content="@tadeuzagallo" />
