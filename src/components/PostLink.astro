@@ -41,10 +41,14 @@ const category = Array.isArray(post.category) ? post.category.join(', ') : post.
   margin-top: 20px;
 }
 
+.post-link {
+  color: #222;
+}
+
 </style>
 
 <div class='blog-post'>
-  <a href={prefixLink(`/${post.slug}`)}>
+  <a class="post-link" href={prefixLink(`/${post.slug}`)}>
     <time dateTime={moment(post.date).format('MMMM D, YYYY')}>
       {moment(post.date).format('MMMM YYYY')}
     </time>

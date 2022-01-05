@@ -35,11 +35,7 @@ const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${pe
 <html {lang}>
 	<head>
     <Head title={`${title} by Tadeu Zagallo`} type="article" description={description} />
-		<link rel="stylesheet" href={Astro.resolve('../styles/blog.css')} />
 		<link rel="stylesheet" href={Astro.resolve('../styles/code.css')} />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
       .wrapper {
@@ -104,9 +100,7 @@ const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${pe
         fill: white;
         margin-right: 10px;
       }
-
     </style>
-
   </head>
   <body>
     <div class="wrapper">
