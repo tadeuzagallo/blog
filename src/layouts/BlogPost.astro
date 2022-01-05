@@ -13,7 +13,7 @@ import config from '../config.json';
 import smallLogo from '../../public/images/logo-small.jpg';
 
 const { post } = Astro.props;
-const { title, lang, description, date, slug, category, twitter_text, content } = post;
+const { title, lang, description, date, slug, category, twitter_text, content, image } = post;
 const { html } = content;
 
 i18next.init({
@@ -34,7 +34,7 @@ const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${pe
 
 <html {lang}>
 	<head>
-    <Head title={`${title} by Tadeu Zagallo`} type="article" description={description} />
+    <Head title={`${title} by Tadeu Zagallo`} type="article" {description} {image} />
 		<link rel="stylesheet" href={Astro.resolve('../styles/code.css')} />
 
     <style>

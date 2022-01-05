@@ -3,7 +3,7 @@
 import config from '../config.json';
 
 import favicon from '../../public/favicon.ico';
-import smallLogo from '../../public/images/logo-small.jpg';
+import logoImage from '../../public/images/logo.jpg';
 
 export interface Props {
 	title: string;
@@ -12,10 +12,14 @@ export interface Props {
 	permalink: string;
 	description: string;
 }
-const { title, type, image, description } = Astro.props;
+let { title, type, image, description } = Astro.props;
 
-const urlWithoutTrailingSlash = Astro.site.href.replace(/\/$/, '');
-const logo = `${urlWithoutTrailingSlash}${smallLogo}`;
+if (!image) {
+  const urlWithoutTrailingSlash = Astro.site.href.replace(/\/$/, '');
+  image = `${urlWithoutTrailingSlash}${logoImage}`;
+} else {
+  image = `${Astro.site.href}${image ?? logoImage}`;
+}
 
 const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 
@@ -36,14 +40,14 @@ const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 <meta property="og:type" content={type} />
 <meta property="og:url" content={permalink} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={logo} />
+<meta property="og:image" content={image} />
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:url" content={permalink} />
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
-<meta property="twitter:image" content={logo} />
+<meta property="twitter:image" content={image} />
 <meta property="twitter:site" content="@tadeuzagallo" />
 
 <!-- Fonts -->

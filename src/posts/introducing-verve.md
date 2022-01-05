@@ -4,7 +4,7 @@ title: "Introducing Verve"
 date: 2016-07-08 17:03:12
 description: An experimental, minimalistic, static, functional language with zero dependencies.
 slug: introducing-verve
-image: 'verve-logo.jpg'
+image: 'images/verve-logo.jpg'
 category:
 - verve
 - fp

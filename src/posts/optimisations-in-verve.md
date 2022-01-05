@@ -3,7 +3,7 @@ lang: en
 title: "Optimisations in Verve"
 date: 2016-09-30 10:47:06
 description: 'Premature optimisations for fun!'
-image: 'verve-logo.jpg'
+image: 'images/verve-logo.jpg'
 slug: optimisations-in-verve
 category:
 - interpreter
