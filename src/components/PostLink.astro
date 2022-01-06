@@ -2,10 +2,9 @@
 
 import moment from 'moment';
 
-import prefixLink from '../utils/prefixLink.ts';
-
 const { post } = Astro.props;
-const category = Array.isArray(post.category) ? post.category.join(', ') : post.category;
+const categories = Array.isArray(post.category) ? post.category.join(', ') : post.category;
+const href = `/blog/${post.slug}/`;
 
 ---
 
@@ -48,14 +47,14 @@ const category = Array.isArray(post.category) ? post.category.join(', ') : post.
 </style>
 
 <div class='blog-post'>
-  <a class="post-link" href={prefixLink(`/${post.slug}`)}>
+  <a class="post-link" {href}>
     <time dateTime={moment(post.date).format('MMMM D, YYYY')}>
       {moment(post.date).format('MMMM YYYY')}
     </time>
-    <span class='blog-category'>{category}</span>
+    <span class='blog-category'>{categories}</span>
     <h2 class="post-title">{post.title}</h2>
     <p>{post.description}<p/>
   </a>
-  <a class='readmore' href={prefixLink(`/${post.slug}`)}>Read</a>
+  <a class='readmore' {href}>Read</a>
   <hr class="gradient-hr" />
 </div>

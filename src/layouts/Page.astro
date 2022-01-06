@@ -5,10 +5,6 @@ import i18next from 'i18next';
 import Head from '../components/Head.astro';
 import Sidebar from '../components/Sidebar.astro';
 
-import prefixLink from '../utils/prefixLink.ts';
-
-import config from '../config.json';
-
 const { lang, translation } = Astro.props;
 
 i18next.init({

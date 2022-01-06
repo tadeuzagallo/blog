@@ -2,8 +2,6 @@
 
 import SiteLink from './SiteLink.astro';
 
-import prefixLink from '../utils/prefixLink.ts';
-
 const { t } = Astro.props;
 
 ---
@@ -47,8 +45,8 @@ const { t } = Astro.props;
 
 <nav class='blog-nav'>
   <ul>
-    <li><SiteLink href={prefixLink("/")} text={t('menu-posts')} /></li>
-    <li><SiteLink href={prefixLink("/about/")} text={t('menu-about')} /></li>
+    <li><SiteLink href="/blog/" text={t('menu-posts')} /></li>
+    <li><SiteLink href="/blog/about/" text={t('menu-about')} /></li>
   </ul>
 
   <hr class="gradient-hr" />

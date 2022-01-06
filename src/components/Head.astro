@@ -1,9 +1,6 @@
 ---
 
-import config from '../config.json';
-
 import favicon from '../../public/favicon.ico';
-import logoImage from '../../public/images/logo.jpg';
 
 export interface Props {
 	title: string;
@@ -15,8 +12,7 @@ export interface Props {
 let { title, type, image, description } = Astro.props;
 
 if (!image) {
-  const urlWithoutTrailingSlash = Astro.site.href.replace(/\/$/, '');
-  image = `${urlWithoutTrailingSlash}${logoImage}`;
+  image = `${Astro.site.href}images/logo.jpg`;
 } else {
   image = `${Astro.site.href}${image ?? logoImage}`;
 }

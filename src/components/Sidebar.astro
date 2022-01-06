@@ -3,11 +3,6 @@
 import SiteLinks from "./SiteLinks.astro"
 import SocialLinks from "./SocialLinks.astro"
 
-import prefixLink from '../utils/prefixLink.ts';
-
-import config from '../config.json';
-import smallLogo from '../../public/images/logo-small.jpg';
-
 const { t } = Astro.props;
 
 ---
@@ -45,20 +40,20 @@ const { t } = Astro.props;
 }
 </style>
 
-<div class='sidebar'>
-  <div class='sidebar-inner'>
-    <div class='blog-details'>
+<div class="sidebar">
+  <div class="sidebar-inner">
+    <div class="blog-details">
         <header>
-          <a href={prefixLink('/')}>
-            <img src={smallLogo} alt="logo" width='75' height='75' />
+          <a href="/blog/">
+            <img src="/blog/images/logo-small.jpg" alt="logo" width="75" height="75" />
           </a>
           <h2>
-            <a href={prefixLink('/')}>{config.siteAuthor}</a>
+            <a href="/blog/">Tadeu Zagallo</a>
           </h2>
           <p>{t('siteDescription')}</p>
         </header>
     </div>
-    <div class='blog-options'>
+    <div class="blog-options">
       <SiteLinks {t} />
       <footer>
         <SocialLinks {...this.props}/>

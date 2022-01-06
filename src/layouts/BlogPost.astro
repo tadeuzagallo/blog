@@ -5,11 +5,8 @@ import moment from 'moment';
 
 import Head from '../components/Head.astro';
 
-import prefixLink from '../utils/prefixLink.ts';
-
 import enTranslations from '../pages/en/translation.json';
 /*import ptTranslations from '../pages/pt/translation.json';*/
-import config from '../config.json';
 import smallLogo from '../../public/images/logo-small.jpg';
 
 const { post } = Astro.props;
@@ -30,6 +27,7 @@ const { t } = i18next;
 const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 const categories = Array.isArray(category) ? category.join(',') : (category || '');
 const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${permalink} via @tadeuzagallo&hashtags=${categories}`;
+
 ---
 
 <html {lang}>
@@ -104,7 +102,7 @@ const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${pe
   </head>
   <body>
     <div class="wrapper">
-      <a class='gohome' href={prefixLink('/')}>{t('all posts')}</a>
+      <a class='gohome' href="/blog/">{t('all posts')}</a>
       <div class='blog-post'>
         <header class="header">
           <h1>{title}</h1>
