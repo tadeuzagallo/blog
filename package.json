@@ -9,9 +9,7 @@
     "preview": "astro preview"
   },
   "devDependencies": {
-    "astro": "^0.22.3"
-  },
-  "dependencies": {
+    "astro": "^0.22.7",
     "i18next": "^21.6.4",
     "moment": "^2.29.1"
   }
