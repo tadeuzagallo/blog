@@ -1,5 +1,7 @@
 ---
 
+import { Markdown } from 'astro/components';
+
 import SiteLinks from "./SiteLinks.astro"
 import SocialLinks from "./SocialLinks.astro"
 
@@ -50,7 +52,7 @@ const { t } = Astro.props;
           <h2>
             <a href="/blog/">Tadeu Zagallo</a>
           </h2>
-          <p>{t('siteDescription')}</p>
+          <p><Markdown>{t('siteDescription')}</Markdown></p>
         </header>
     </div>
     <div class="blog-options">

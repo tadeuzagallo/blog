@@ -1,0 +1,28 @@
+---
+
+import Head from '../../components/Head.astro';
+import i18n from '../../utils/i18n.js';
+
+export function getStaticPaths() {
+  const routes = ['en', 'pt'].map(lang => ({
+    params: { lang },
+    props: { lang },
+  }));
+  return routes;
+}
+
+const { t } = i18n('en');
+const { lang } = Astro.props;
+
+---
+
+<html {lang}>
+	<head>
+    <Head title={t('siteTitle')} type="website" description={t('siteDescription')} />
+    <script data-lang={lang}>
+      const { lang } = document.currentScript.dataset;
+      let language = localStorage.setItem('lang', lang);
+      window.location.pathname = `/blog/`;
+    </script>
+  </head>
+</html>

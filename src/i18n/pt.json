@@ -1,0 +1,15 @@
+{
+  "siteTitle": "Blog by Tadeu Zagallo",
+  "siteDescription": "Desenvolvedor de software com foco em linguagens de programação e *developer experience*. Atualmente *Principal Engineer* na Klarna. Anteriormente Apple, Uber e Facebook.",
+
+  "menu-posts": "Artigos",
+  "menu-about": "Sobre mim",
+  "menu-projects": "Alguns projetos pessoais",
+  "menu-verve": "Verve (linguagem de programação)",
+
+  "all posts": "All posts",
+
+  "lang-switch-link": "/blog/select/en/",
+  "lang-switch-text": "Switch to english",
+  "lang-switch-flag": "🇬🇧"
+}

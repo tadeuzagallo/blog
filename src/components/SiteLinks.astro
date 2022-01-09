@@ -41,6 +41,10 @@ const { t } = Astro.props;
   margin-bottom: 25px;
   font-weight: 600;
 }
+
+.language {
+	font-size: 16px;
+}
 </style>
 
 <nav class='blog-nav'>
@@ -57,4 +61,11 @@ const { t } = Astro.props;
     <li><a href="https://tadeuzagallo.com/zsh.js">zsh.js</a></li>
     <li><a href="https://tadeuzagallo.com/GithubPulse">Github Pulse</a></li>
   </ul>
+
+  <hr class="gradient-hr" />
+
+  <a href={t('lang-switch-link')}>
+    <span class="language">{t('lang-switch-text')}</span>
+    {t('lang-switch-flag')}
+  </a>
 </nav>

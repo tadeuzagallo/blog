@@ -1,6 +1,5 @@
 ---
 
-import Page from './Page.astro';
 import Head from '../components/Head.astro';
 import i18n from '../utils/i18n.js';
 
@@ -17,9 +16,9 @@ const { page } = Astro.props;
       const { page } = document.currentScript.dataset;
       let language = localStorage.getItem('lang');
       if (!language) {
-        /*if (/^pt\b/.test(navigator.language))*/
-          /*language = 'pt';*/
-        /*else*/
+        if (/^pt\b/.test(navigator.language))
+          language = 'pt';
+        else
           language = 'en';
       }
       window.location.pathname = `/blog/${language}${page}`;

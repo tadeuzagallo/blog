@@ -7,5 +7,9 @@
   "menu-projects": "Some of my projects",
   "menu-verve": "Verve (programming language)",
 
-  "all posts": "All posts"
+  "all posts": "All posts",
+
+  "lang-switch-link": "/blog/select/pt/",
+  "lang-switch-text": "Ver em português",
+  "lang-switch-flag": "🇧🇷"
 }
