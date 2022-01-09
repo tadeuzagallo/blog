@@ -684,10 +684,10 @@ astring@^1.7.5:
   resolved "https://registry.yarnpkg.com/astring/-/astring-1.8.1.tgz#a91c4afd4af3523e11f31242a3d5d9af62bb6cc6"
   integrity sha512-Aj3mbwVzj7Vve4I/v2JYOPFkCGM2YS7OqQTNSxmUR+LECRpokuPgAYghePgr6SALDo5bD5DlfbSaYjOzGJZOLQ==
 
-astro@^0.22.7:
-  version "0.22.7"
-  resolved "https://registry.yarnpkg.com/astro/-/astro-0.22.7.tgz#bc32824e2b41ef9bd9bab59d90c7ae1f61b9eb17"
-  integrity sha512-gyLVFGRcari7AsmSWEsqP8Rdd2kM9eJo8l+VAMq0WIBvAV6XUMrZHhaUhwU5wCnQ4pScWB2U1ukYS51QoqQBLA==
+astro@^0.22.9:
+  version "0.22.9"
+  resolved "https://registry.yarnpkg.com/astro/-/astro-0.22.9.tgz#3baaa14a9fc79436bffb9bf67460641614129335"
+  integrity sha512-eJz9mUsLd8AdfCJw2GYFbEQQ8fS/3zS/gPQRVdQ/DWMwiKX9wXWn8PTeA+4Q2/bTVXDJIEBHb7c8TFYcQdS+HQ==
   dependencies:
     "@astrojs/compiler" "^0.7.4"
     "@astrojs/language-server" "^0.8.6"
@@ -706,6 +706,7 @@ astro@^0.22.7:
     "@web/parse5-utils" "^1.3.0"
     astring "^1.7.5"
     ci-info "^3.2.0"
+    common-ancestor-path "^1.0.1"
     connect "^3.7.0"
     eol "^0.9.1"
     es-module-lexer "^0.9.3"
@@ -883,6 +884,11 @@ comma-separated-tokens@^2.0.0:
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/comma-separated-tokens/-/comma-separated-tokens-2.0.2.tgz#d4c25abb679b7751c880be623c1179780fe1dd98"
   integrity sha512-G5yTt3KQN4Yn7Yk4ed73hlZ1evrFKXeUW3086p3PRFNp7m2vIjI6Pg+Kgb+oyzhd9F2qdcoj67+y3SdxL5XWsg==
+
+common-ancestor-path@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/common-ancestor-path/-/common-ancestor-path-1.0.1.tgz#4f7d2d1394d91b7abdf51871c62f71eadb0182a7"
+  integrity sha512-L3sHRo1pXXEqX8VU28kfgUY+YGsk09hPqZiZmLacNib6XNTCM8ubYeT7ryXQw8asB1sKgcU5lkB7ONug08aB8w==
 
 concat-map@0.0.1:
   version "0.0.1"
