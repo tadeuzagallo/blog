@@ -11,7 +11,7 @@ import smallLogo from '../../public/images/logo-small.jpg';
 const { post } = Astro.props;
 const { title, lang, description, date, slug, category, twitter_text, content, image } = post;
 const { html } = content;
-const { t } = i18n('en');
+const { t } = i18n(lang);
 
 const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 const categories = Array.isArray(category) ? category.join(',') : (category || '');
