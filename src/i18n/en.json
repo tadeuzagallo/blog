@@ -10,6 +10,13 @@
   "all posts": "All posts",
 
   "lang-switch-link": "/blog/select/pt/",
-  "lang-switch-text": "Ver em português",
-  "lang-switch-flag": "🇧🇷"
+  "lang-switch-text": "Ver artigos em português",
+  "lang-switch-flag": "🇧🇷",
+
+  "read": "Read",
+  "by": "by",
+
+  "view-articles-lang": "View posts in",
+  "en": "English",
+  "pt": "Portuguese"
 }

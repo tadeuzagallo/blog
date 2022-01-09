@@ -2,7 +2,7 @@
 
 import moment from 'moment';
 
-const { post } = Astro.props;
+const { post, t } = Astro.props;
 const categories = Array.isArray(post.category) ? post.category.join(', ') : post.category;
 const href = `/blog/${post.slug}/`;
 
@@ -55,6 +55,6 @@ const href = `/blog/${post.slug}/`;
     <h2 class="post-title">{post.title}</h2>
     <p>{post.description}<p/>
   </a>
-  <a class='readmore' {href}>Read</a>
+  <a class='readmore' {href}>{t('read')}</a>
   <hr class="gradient-hr" />
 </div>

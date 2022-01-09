@@ -21,7 +21,7 @@ const twitterUrl = `https://twitter.com/intent/tweet?text="${twitter_text}" ${pe
 
 <html {lang}>
 	<head>
-    <Head title={`${title} by Tadeu Zagallo`} type="article" {description} {image} />
+    <Head title={`${title} ${t('by')} Tadeu Zagallo`} type="article" {description} {image} />
 		<link rel="stylesheet" href={Astro.resolve('../styles/code.css')} />
 
     <style>

@@ -1,0 +1,32 @@
+---
+import LanguageOption from './LanguageOption.astro';
+
+const { t } = Astro.props;
+---
+
+<style>
+
+.language-switcher {
+  display: flex;
+  align-items: center;
+}
+
+.options {
+  display: flex;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.title {
+  font-weight: 500;
+}
+
+</style>
+
+<div class="language-switcher">
+  <div class="title">{t('view-articles-lang')}:</div>
+  <div class="options">
+    <LanguageOption target="pt" {...Astro.props} />
+    <LanguageOption target="en" {...Astro.props} />
+  </div>
+</div>

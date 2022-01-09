@@ -1,11 +1,24 @@
 ---
 
-import PostLink from "./PostLink.astro";
+import PostLink from './PostLink.astro';
+import LanguageSwitcher from './LanguageSwitcher.astro';
+import i18n from '../utils/i18n.js';
 
-const { posts } = Astro.props;
+const { lang } = Astro.props;
+const { t } = i18n(lang);
+
+const allPosts = Astro.fetchContent('../posts/*.md');
+const visiblePosts = allPosts.filter(post => post.lang === lang && !post.unlisted);
+const sortedPosts = visiblePosts.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
 
 ---
 
-{posts.map(post => (
-  <PostLink {post} />
-))}
+<>
+  <LanguageSwitcher {lang} {t} />
+
+  <hr class="gradient-hr" />
+
+  {sortedPosts.map(post => (
+    <PostLink {post} {t} />
+  ))}
+</>

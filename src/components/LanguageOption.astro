@@ -1,0 +1,33 @@
+---
+
+const { target, lang, t } = Astro.props;
+
+const active = target === lang
+let className = active ? "disabled" : "enabled";
+className = `target ${className}`;
+
+---
+
+<style>
+.target {
+  text-align: center;
+  padding: 5px;
+}
+
+.target.enabled {
+  text-decoration: underline;
+  /*background: #b51;*/
+  /*color: white;*/
+}
+
+.target.disabled {
+  /*background: #ddd;*/
+  /*color: #222;*/
+}
+
+</style>
+
+  {active
+    ? <div class={className}>{t(target)}</div>
+    : <a class={className} href=`/blog/${target}`>{t(target)}</a>
+  }

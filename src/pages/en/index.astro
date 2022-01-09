@@ -3,12 +3,8 @@
 import Page from '../../layouts/Page.astro';
 import PostList from '../../components/PostList.astro';
 
-const allPosts = Astro.fetchContent('../../posts/*.md');
-const visiblePosts = allPosts.filter(post => !post.unlisted);
-const sortedPosts = visiblePosts.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
-
 ---
 
 <Page lang="en">
-  <PostList posts={sortedPosts} lang="en" />
+  <PostList lang="en" />
 </Page>
