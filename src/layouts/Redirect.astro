@@ -1,21 +1,10 @@
 ---
 
-import i18next from 'i18next';
-
 import Page from './Page.astro';
 import Head from '../components/Head.astro';
+import i18n from '../utils/i18n.js';
 
-import translation from '../pages/en/translation.json';
-
-i18next.init({
-  lng: 'en',
-  debug: false,
-  resources: {
-    en: { translation }
-  }
-});
-
-const { t } = i18next;
+const { t } = i18n('en');
 const { page } = Astro.props;
 
 ---

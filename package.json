@@ -10,7 +10,6 @@
   },
   "devDependencies": {
     "astro": "^0.22.9",
-    "i18next": "^21.6.4",
     "moment": "^2.29.1"
   }
 }

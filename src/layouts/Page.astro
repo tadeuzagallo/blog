@@ -1,21 +1,11 @@
 ---
 
-import i18next from 'i18next';
-
 import Head from '../components/Head.astro';
 import Sidebar from '../components/Sidebar.astro';
+import i18n from '../utils/i18n.js';
 
-const { lang, translation } = Astro.props;
-
-i18next.init({
-  lng: 'en',
-  debug: false,
-  resources: {
-    en: { translation }
-  }
-});
-
-const { t } = i18next;
+const { lang } = Astro.props;
+const { t } = i18n(lang);
 
 ---
 

@@ -1,28 +1,17 @@
 ---
 
-import i18next from 'i18next';
 import moment from 'moment';
 
 import Head from '../components/Head.astro';
+import i18n from '../utils/i18n.js';
 
-import enTranslations from '../pages/en/translation.json';
-/*import ptTranslations from '../pages/pt/translation.json';*/
 import smallLogo from '../../public/images/logo-small.jpg';
+
 
 const { post } = Astro.props;
 const { title, lang, description, date, slug, category, twitter_text, content, image } = post;
 const { html } = content;
-
-i18next.init({
-  lng: lang,
-  debug: false,
-  resources: {
-    en: { translation: enTranslations },
-    /*pt: { translation: ptTranslations },*/
-  }
-});
-
-const { t } = i18next;
+const { t } = i18n('en');
 
 const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 const categories = Array.isArray(category) ? category.join(',') : (category || '');
