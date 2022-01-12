@@ -1,7 +1,5 @@
 ---
 
-import favicon from '../../public/favicon.ico';
-
 export interface Props {
 	title: string;
 	type: string;
@@ -24,7 +22,7 @@ const permalink = Astro.site.origin + Astro.request.canonicalURL.pathname;
 <!-- Global Metadata -->
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width" />
-<link rel="icon" type="image/x-icon" href={favicon} />
+<link rel="shortcut icon" type="image/png" href="/blog/favicon.ico" />
 
 <!-- Primary Meta Tags -->
 <title>{title}</title>
