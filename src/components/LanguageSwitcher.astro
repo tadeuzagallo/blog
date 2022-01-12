@@ -30,3 +30,13 @@ const { t, counts } = Astro.props;
     <LanguageOption target="en" {...Astro.props} count={counts.en}/>
   </div>
 </div>
+
+<script>
+  const button = document.querySelector('.target.enabled');
+  button.addEventListener('click', e => {
+    e.preventDefault();
+    const { lang } = e.target.dataset;
+    localStorage.setItem('lang', lang);
+    window.location.pathname = `/blog/${lang}/`;
+  });
+</script>

@@ -27,7 +27,7 @@ className = `target ${className}`;
 
 </style>
 
-  {active
-    ? <div class={className}>{t(target)} ({count})</div>
-    : <a class={className} href=`/blog/${target}`>{t(target)} ({count})</a>
-  }
+{active
+  ? <div class={className}>{t(target)} ({count})</div>
+  : <a class={className} data-lang={target} href=`/blog/${target}/`>{t(target)} ({count})</a>
+}
