@@ -1,0 +1,357 @@
+<!DOCTYPE html><html lang="en" class="astro-ZRE6QY23"><head>
+    
+<!-- Global Metadata -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="shortcut icon" type="image/png" href="/blog/favicon.ico">
+
+<!-- Primary Meta Tags -->
+<title>Writing a 'trampoline' in assembly for profiling by Tadeu Zagallo</title>
+<meta name="title" content="Writing a 'trampoline' in assembly for profiling by Tadeu Zagallo">
+<meta name="description" content="">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:title" content="Writing a 'trampoline' in assembly for profiling by Tadeu Zagallo">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://tadeuzagallo.com/blog/writing-a-trampoline-in-assembly/">
+<meta property="og:description" content="">
+<meta property="og:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://tadeuzagallo.com/blog/writing-a-trampoline-in-assembly/">
+<meta property="twitter:title" content="Writing a 'trampoline' in assembly for profiling by Tadeu Zagallo">
+<meta property="twitter:description" content="">
+<meta property="twitter:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+<meta property="twitter:site" content="@tadeuzagallo">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet">
+
+<!-- Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-47264623-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-47264623-1');
+</script>
+
+<link rel="stylesheet" href="../assets/blog.0106c48b.css"><link rel="stylesheet" href="../assets/index.aa768e43.css"><link rel="stylesheet" href="../assets/code.28b7c1f4.css">
+
+		
+
+    
+  </head>
+  <body>
+    <div class="wrapper astro-ZRE6QY23">
+      <a class="gohome astro-ZRE6QY23" href="/blog/">All posts</a>
+      <div class="blog-post astro-ZRE6QY23">
+        <header class="header astro-ZRE6QY23">
+          <h1 class="astro-ZRE6QY23">Writing a 'trampoline' in assembly for profiling</h1>
+          <p class="desc astro-ZRE6QY23"></p>
+          <time class="date-published astro-ZRE6QY23" datetime="December 7, 2015">
+            7 Dec 2015
+          </time>
+        </header>
+
+        <div class="blog-post-text astro-ZRE6QY23">
+          <h2 id="context">Context</h2>
+<p><a href="http://facebook.github.io/react-native">React Native</a> has different characteristics than “regular” iOS and JavaScript development, understanding the flow of events across the stack, even working on it, can be complicated sometimes. In order to make easier, I’ve been working on a custom profiler for React Native, inspired by <a href="http://developer.android.com/tools/help/systrace.html">Android systrace</a> and using the same front-end, <a href="https://github.com/catapult-project/catapult/tree/master/tracing">Google trace-viewer</a>.</p>
+<p><img src="../assets/assembly-trampoline/trampoline_systrace.png" alt="Sample systrace output"></p>
+<h2 id="goal">Goal</h2>
+<p>My initial goal was to visualise at least what was happening in the <a href="http://facebook.github.io/react-native/docs/native-modules-ios.html#content">Native Modules</a>, so I started manually adding markers to the critical parts of the framework, like the <a href="https://github.com/facebook/react-native/blob/master/React/Base/RCTBatchedBridge.m">Bridge</a> and the <a href="https://github.com/facebook/react-native/blob/master/React/Modules/RCTUIManager.m">UIManager</a>, but what I really wanted was to have markers in every method of every native module, and manually adding markers is not only inefficient, but impossible when it comes to third-party code. Doing it dynamically also has the benefit of having zero overhead when the profiler is not running - the code paths don’t even exist unless you activate the profiler.</p>
+<p>Since all the modules are registered with the bridge, and Objective-C is very dynamic, we can simply add markers to all the module’s methods at runtime, so the actual goal here is to execute something before the method body - mark the start of the method, and after the method body - mark the end of the method.</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc"><span class="token operator">-</span> <span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>myMethod <span class="token punctuation">{</span>
+  <span class="token function">profilerBegin</span><span class="token punctuation">(</span><span class="token string">@"myMethod"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// We need to execute this prologue</span>
+
+  <span class="token comment">// method body</span>
+
+  <span class="token function">profilerEnd</span><span class="token punctuation">(</span><span class="token string">@"myMethod"</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// and this epilogue</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Objective-C has everything we need to introspect the classes, find the methods, and replace them, <em>but…</em> what do we replace them with? How do you still call the original method with a variable number of arguments?</p>
+<h1 id="nsinvocation">NSInvocation</h1>
+<p>So my initial approach¹ was inspired by Peter Steinberger’s <a href="https://github.com/steipete/Aspects">Aspects</a> library, but much less flexible, since I only needed a very specific prologue and epilogue.</p>
+<p>The basic idea behind the implementation was allocating a new <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/#//apple_ref/c/func/objc_allocateClassPair">class pair</a>, and for every method in the class, we’d first rename it by adding a prefix, and add it (without the prefix) to the new class. The new class’ implementation however was only <a href="http://www.opensource.apple.com/source/objc4/objc4-532.2/runtime/message.h">_objc_msgForward</a>, which <em>forwards</em> the message, we then implement the <code data-astro-raw="">forwardInvocation:</code>² method, which takes a <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSInvocation_Class/">NSInvocation</a> instance ready, with the object with are calling, the selector and all the arguments. Done!</p>
+<p>All we need to do now in <code data-astro-raw="">-forwardInvocation:</code> is:</p>
+<ul>
+<li>prepend the prefix we used when renaming the method to selector,</li>
+<li>start the profiler,</li>
+<li>invoke the <code data-astro-raw="">NSInvocation</code>,</li>
+<li>stop the profiler,</li>
+<li>return the invocation result.</li>
+</ul>
+<p><img src="../assets/assembly-trampoline/forward_invocation_scheme.png" alt="forward invocation scheme"></p>
+<small>
+1. the original implementation can still be found 
+<a href="https://github.com/facebook/react-native/blob/1b296904962709d06381523f39ccdffae775dd44/React/Base/RCTProfile.m#L183">here</a>
+</small>
+
+
+<small>
+2. see the Apple’s 
+<a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtForwarding.html">Message Forwarding</a>
+ guide for more information
+</small>
+<h1 id="assembly-version">Assembly version</h1>
+<p>Everything was already working, why bother to implement it in assembly? Well, <code data-astro-raw="">NSInvocation</code> is slow (here are some <a href="https://geekanddad.wordpress.com/2013/03/14/1636/">benchmarks</a> to have an idea), usually it’s alright out of critical paths, but wrapping every method in it, for profiling reasons, is not great.</p>
+<p>Plus, it’s a <strong>much</strong> easier problem to solve in assembly!</p>
+<p>Let’s look at a basic example: you have a function <code data-astro-raw="">A</code>, that’s only a proxy for <code data-astro-raw="">void B(void)</code>, how do you solve it in C?</p>
+<pre class="language-c"><code data-astro-raw="" class="language-c"><span class="token keyword">void</span> <span class="token function">A</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token function">B</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span></code></pre>
+<p>That’s easy, but what if <code data-astro-raw="">A</code> now has to proxy to both, <code data-astro-raw="">B</code> and <code data-astro-raw="">add</code>, but <code data-astro-raw="">B</code> returns <code data-astro-raw="">void</code> and takes no arguments, and <code data-astro-raw="">add</code> takes two <code data-astro-raw="">int</code>s and returns the sum as one <code data-astro-raw="">int</code>. It’s not possible. The language semantics don’t support it, you’d have to convert both functions to take <code data-astro-raw="">va_args</code>, but if you fall back to assembly, it’s as simple as:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token label function">A:</span>
+<span class="token comment">; some logic to decide between jmp_B and jmp_add</span>
+
+<span class="token label function">jmp_B:</span><span class="token keyword">
+  jmp</span><span class="token keyword"> B</span>
+<span class="token label function">jmp_add:</span><span class="token keyword">
+  jmp</span><span class="token keyword"> add</span></code></pre>
+<p>All the arguments are in the right registers, or in the right position in the stack, all we have to do is execute the target method - just <code data-astro-raw="">jmp</code> to it.</p>
+<p>These functions, that basically only redirect to another function, like <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/#//apple_ref/c/func/objc_msgSend">objc_msgSend</a>, are sometimes called <em>trampolines</em>. In fact the x86_64 implementation I’m going to present is heavily inspired in the <a href="https://github.com/opensource-apple/objc4/blob/17d47b3989923007fa052f346b05a32fca389465/runtime/Messengers.subproj/objc-msg-x86_64.s#L289">original objc_msgSend implementation</a> and Mike Ash’s post <a href="https://www.mikeash.com/pyblog/friday-qa-2012-11-16-lets-build-objc_msgsend.html">“Let’s Build objc_msgSend”</a>, the main difference is that <code data-astro-raw="">objc_msgSend</code> calls the underlying function and returns directly to it’s caller, i.e. there’s no epilogue.</p>
+<h1 id="x86_64---calling-conventions">x86_64 - calling conventions</h1>
+<p>In order to do anything properly in assembly, we first need to understand the <a href="http://people.freebsd.org/~obrien/amd64-elf-abi.pdf">calling conventions</a>, you can look at the <code data-astro-raw="">Register Usage</code> in Figure 3.4, but I’ll add here only the bits we need:</p>
+<ul>
+<li>Callee-saved registers: these registers’ values will be preserved across function calls (which also means that we have to restore its value before returning)
+<ul>
+<li>I’ll just be using <code data-astro-raw="">%r12</code>, <code data-astro-raw="">%r13</code> and <code data-astro-raw="">%r14</code> - check the <a href="http://people.freebsd.org/~obrien/amd64-elf-abi.pdf">calling conventions</a> for the full list.</li>
+</ul>
+</li>
+<li>Argument registers:
+<ul>
+<li><code data-astro-raw="">%rdi</code>, <code data-astro-raw="">%rsi</code>, <code data-astro-raw="">%rdx</code>, <code data-astro-raw="">%rcx</code>, <code data-astro-raw="">%r8</code> and <code data-astro-raw="">%r9</code> hold the first 6 quad-word arguments (pointers and integers).</li>
+<li><code data-astro-raw="">%xmm0</code> to <code data-astro-raw="">%xmm7</code> are used to pass floating point arguments</li>
+<li><code data-astro-raw="">%rax</code> is used in variable-argument calls to store the number of SSE registers</li>
+</ul>
+</li>
+</ul>
+<p>It’s also important to understand the stack layout. All the arguments that don’t fit in the registers will be put in the stack. Plus, when you call a method, using the <code data-astro-raw="">call</code> instruction, it’ll push the return address onto the stack, so when the called function calls <code data-astro-raw="">ret</code>, it knows the right address to return.</p>
+<h1 id="designing-the-trampoline">Designing the trampoline</h1>
+<p>High-level design:</p>
+<ul>
+<li>Store all the argument registers</li>
+<li>Determine the address of the “actual function”</li>
+<li>Start profiling</li>
+<li>Restore the argument registers</li>
+<li>Call the “actual function”</li>
+<li>Save the returned values</li>
+<li>Stop profiling</li>
+<li>Restore the returned values</li>
+<li>Return to the caller</li>
+</ul>
+<p>Simple, right? Yes, but if you’ve been paying close attention you might have noticed that at the point that we call the “actual function” we have to restore all the registers <em>and</em> all the stack state, e.g. everything has to look exactly the same as it did at the beginning of the function, <em>except</em> the return address, since we want the “actual function” to return to the trampoline rather than to its caller.</p>
+<p>The catch is that when we replace the return address with ours instead of the caller we have nowhere to store the original return address (so we can return to it at the end): we can’t store it in the stack, because it can’t contain any extra values; we can’t store it in temporary registers, because their value is not guaranteed to be preserved across the function call; we could store it in callee-saved registers, but we’d need to restore the register’s original value at the end of the function, and then we’d have the same problem to store it…</p>
+<p>Which bring us to the heap, we can allocate a small block of memory, so we can save the return address! But where do we save the block of memory’s address? The idea here is to allocate the size of two registers: we store the original value of two callee-saved registers there, and then we use the callee-saved registers (<code data-astro-raw="">%r14</code> and <code data-astro-raw="">%r13</code> in this case) to store the block of memory’s address and the original return address, respectively.</p>
+<p>So our design now looks a bit more like:</p>
+<ul>
+<li>Store all the argument registers</li>
+<li>Determine the address of the “actual function”</li>
+<li>Allocate a 16-bytes in the heap</li>
+<li>Save two callee-saved registers in the heap memory</li>
+<li>Save the memory address in callee-saved register #1</li>
+<li>Start profiling</li>
+<li>Restore the argument registers</li>
+<li>Pop the original return address from the stack into callee-save register #2</li>
+<li>Call the “actual function” (this will push our return address onto the stack)</li>
+<li>Save the returned values</li>
+<li>Stop profiling</li>
+<li>Restore the callee-saved registers and free the allocated memory</li>
+<li>Restore the returned values</li>
+<li>Return to the caller</li>
+</ul>
+<h2 id="storing-all-the-argument-registers">Storing all the argument registers</h2>
+<p>First thing we need to do is to store all the argument registers, this way we can be sure we won’t miss any parameters when we call the “actual function” after the prologue execution.</p>
+<p>Once you know which registers need to be stored, this is the simplest part, all you need to do is save everything in the stack.</p>
+<p>For the word-size registers, all we need to do is <code data-astro-raw="">push</code> (the <code data-astro-raw="">q</code> suffix is just to make it explicit that it’s a quad-word instruction, i.e. 8-bytes):</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">pushq</span> <span class="token register class-name">%rdi</span>
+<span class="token keyword">pushq</span> <span class="token register class-name">%rsi</span>
+<span class="token keyword">pushq</span> <span class="token register class-name">%rdx</span>
+<span class="token keyword">pushq</span> <span class="token register class-name">%rcx</span>
+<span class="token keyword">pushq</span> <span class="token register class-name">%r8</span>
+<span class="token keyword">pushq</span> <span class="token register class-name">%r9</span>
+<span class="token keyword">pushq</span> <span class="token register class-name">%rax</span></code></pre>
+Now the 
+<code data-astro-raw="">%xmm</code>
+ registers: they hold the floating point arguments, and they can’t be simply 
+<code data-astro-raw="">push</code>
+ed. We have to subtract the size we need from the stack (each register is 16-bytes) and move them using the 
+<code data-astro-raw="">movdqa</code>
+<sup>
+1
+</sup>
+ command:
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">subq</span> <span class="token number">$0x80</span>+<span class="token number">8</span>, <span class="token register class-name">%rsp</span> <span class="token comment">; 8 x 16-bytes xmm registers + 8-bytes alignment for example</span><span class="token keyword">
+movdqa</span>  <span class="token register class-name">%xmm0</span>, <span class="token number">0x70</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm1</span>, <span class="token number">0x60</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm2</span>, <span class="token number">0x50</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm3</span>, <span class="token number">0x40</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm4</span>, <span class="token number">0x30</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm5</span>, <span class="token number">0x20</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm6</span>, <span class="token number">0x10</span>(<span class="token register class-name">%rsp</span>)
+<span class="token keyword">movdqa</span>  <span class="token register class-name">%xmm7</span>, <span class="token number">0x00</span>(<span class="token register class-name">%rsp</span>)</code></pre>
+<small>
+<sup>
+1
+</sup>
+ 
+<code data-astro-raw="">movdqa</code>
+ stands for “move double quad-word aligned” - which means that this instruction expects the stack to be 16-byte aligned (i.e. the stack pointer’s value, 
+<code data-astro-raw="">%rsp</code>
+, has to be a multiple of 
+<code data-astro-raw="">16</code>
+), otherwise it’ll crash.
+</small>
+<h2 id="getting-the-actual-function-address">Getting the “actual function” address</h2>
+<p>Based on the arguments used to call the trampoline we now have to find the address of the original implementation, which we’ve referred to as the “actual function”. There are a couple assumptions that make it easier:</p>
+<ul>
+<li>Since we are only profiling Objective-C methods, we’ll always receive the target object, <code data-astro-raw="">self</code>, and the selector, <code data-astro-raw="">_cmd</code>, as the first two parameters</li>
+<li>As part of the proxy class creation we implement the <code data-astro-raw="">-class</code> method such that it returns the original class instead of the proxy one</li>
+</ul>
+<p>This way we can get the original class from the object, and it’ll contain the original method implementation. This is actually implemented as a one line C function:</p>
+<pre class="language-c"><code data-astro-raw="" class="language-c">IMP <span class="token function">RCTProfileGetImplementation</span><span class="token punctuation">(</span>id obj<span class="token punctuation">,</span> SEL cmd<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token function">class_getMethodImplementation</span><span class="token punctuation">(</span><span class="token punctuation">[</span>obj class<span class="token punctuation">]</span><span class="token punctuation">,</span> cmd<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>We also know that these were the same first two arguments passed to the trampoline, so we don’t even need mess with the parameter registers, we can just call it straight after saving the registers:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">call</span> <span class="token symbol_ function">_RCTProfileGetImplementation</span></code></pre>
+<h2 id="save-registers-in-the-heap">Save registers in the heap</h2>
+<p>At the moment we call the “actual function” we won’t be able to keep state neither in registers nor in the stack, so we allocate a small memory block in the heap to keep the information that has to be preserved across the call.</p>
+<p>Allocating memory in the heap is as easy as calling <code data-astro-raw="">malloc</code>, then we just <code data-astro-raw="">mov</code> the registers to the memory and <code data-astro-raw="">mov</code> the memory address to the callee-saved registers, so we can access it later.</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">movq</span> <span class="token number">$0x10</span>, <span class="token register class-name">%rdi</span> <span class="token comment">; put 16 on the first parameter register, to allocate 16 bytes</span><span class="token keyword">
+callq</span> <span class="token symbol_ function">_malloc</span> <span class="token comment">; call malloc(16), the address will be returned in %rax</span><span class="token keyword">
+
+mov</span> <span class="token register class-name">%r13</span>, (<span class="token register class-name">%rax</span>) <span class="token comment">; save callee-saved register %r13 in the first 8-bytes</span><span class="token keyword">
+mov</span> <span class="token register class-name">%r14</span>, <span class="token number">0x8</span>(<span class="token register class-name">%rax</span>) <span class="token comment">; save callee-saved register %r14 in the second 8-bytes</span><span class="token keyword">
+
+mov</span> <span class="token register class-name">%rax</span>, <span class="token register class-name">%r14</span> <span class="token comment">; save the memory address in the callee-saved register</span></code></pre>
+<h2 id="start-profiling">Start profiling</h2>
+<p>Now we just need to start the timer before calling the “actual function”, the function that actually starts the profiler is another one line C function:</p>
+<pre class="language-c"><code data-astro-raw="" class="language-c"><span class="token keyword">void</span> <span class="token function">RCTProfileTrampolineStart</span><span class="token punctuation">(</span>id obj<span class="token punctuation">,</span> SEL cmd<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token function">RCT_PROFILE_BEGIN_EVENT</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token punctuation">[</span>NSString stringWithFormat<span class="token operator">:</span>@<span class="token string">"-[%s %s]"</span><span class="token punctuation">,</span> <span class="token function">class_getName</span><span class="token punctuation">(</span><span class="token punctuation">[</span>obj class<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token function">sel_getName</span><span class="token punctuation">(</span>cmd<span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">,</span> nil<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>It takes the same two arguments as <code data-astro-raw="">RCTProfileGetImplementation</code> (used to identify the method), and call the macro that actually starts measuring.</p>
+<p>However, in this case the arguments that we need to pass to function are not in the right registers anymore, so we have to retrieve it from the stack (the sample code is using the offsets that are currently being used in the actual source):</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">movq</span> <span class="token number">0x40</span>(<span class="token register class-name">%r12</span>), <span class="token register class-name">%rdi</span> <span class="token comment">; object - type `id` (pointer) in the 1st argument register</span><span class="token keyword">
+movq</span> <span class="token number">0x38</span>(<span class="token register class-name">%r12</span>), <span class="token register class-name">%rsi</span> <span class="token comment">; selector - type `SEL` (pointer) in the 2nd argument register</span><span class="token keyword">
+
+callq</span> <span class="token symbol_ function">_RCTProfileTrampolineStart</span></code></pre>
+<h2 id="restore-the-state">Restore the state</h2>
+<p>Before we call the “actual function” we have to make sure we put all the arguments that were passed to the trampoline back in the right registers, so we pass all the parameters along. We also need to remove anything we saved on the stack, such that the stack pointer has the same value it had at the begin of the function.</p>
+<p>This part is very similar to storing the arguments, except that we have to <code data-astro-raw="">pop</code> from the stack instead of <code data-astro-raw="">push</code>ing, and call <code data-astro-raw="">movdqa</code> with the parameters switched, so that we move it <em>from</em> the stack to the registers. I won’t add the code here because it’s not only very similar, but also very repetitive. Also, the whole code will be available at the end.</p>
+<h2 id="pop-the-original-return-address--call-the-actual-function">Pop the original return address + call the “actual function”</h2>
+<p>Now that all the registers and the stack are in the exact same state as they were at the moment that the trampoline was called, and the profiler is already running, we can safely call the “actual function” we want to measure.</p>
+<p>Before that, we must have stored the “actual function”s address in the stack, and as part of restoring the state we must have poped the “actual function”s address from the stack into some register. The original implementation stored it in the temporary register <code data-astro-raw="">%r11</code>, so I’ll assume it here:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">popq</span> <span class="token register class-name">%r13</span> <span class="token comment">; save the original memory address</span><span class="token keyword">
+callq</span> *<span class="token register class-name">%r11</span> <span class="token comment">; call the original function - this will automatically push the new return address</span></code></pre>
+<h2 id="save-the-returned-values">Save the returned values</h2>
+<p>Now that we have called the “actual function” we have to preserve all the registers that might possibly contain a return value (or part of it).</p>
+<p>We’ll push onto the stack the value-return registers, i.e. <code data-astro-raw="">%rax</code> and <code data-astro-raw="">%rdx</code> for the 8-bytes values and <code data-astro-raw="">%xmm0</code> and <code data-astro-raw="">%xmm1</code> for floating point return values:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">pushq</span> <span class="token register class-name">%rax</span> <span class="token comment">; 1st return register</span><span class="token keyword">
+pushq</span> <span class="token register class-name">%rdx</span> <span class="token comment">; 2nd return register</span><span class="token keyword">
+subq</span> <span class="token number">$0x20</span>, <span class="token register class-name">%rsp</span> <span class="token comment">; allocate the space for 2 16-bytes xmm register</span><span class="token keyword">
+movdqa</span> <span class="token register class-name">%xmm0</span>, <span class="token number">0x00</span>(<span class="token register class-name">%rsp</span>) <span class="token comment">; 1st floating point return register</span><span class="token keyword">
+movdqa</span> <span class="token register class-name">%xmm1</span>, <span class="token number">0x10</span>(<span class="token register class-name">%rsp</span>) <span class="token comment">; 2nd floating point return register</span></code></pre>
+<h2 id="stop-profiling">Stop profiling</h2>
+<p>We already executed everything that should be measured, and the return values are safe, so now we can stop measuring.</p>
+<p>Again, the stop profiling function is implemented in C and all it does is calling a macro:</p>
+<pre class="language-c"><code data-astro-raw="" class="language-c"><span class="token keyword">void</span> <span class="token function">RCTProfileTrampolineEnd</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token function">RCT_PROFILE_END_EVENT</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">,</span> @<span class="token string">"objc_call,modules,auto"</span><span class="token punctuation">,</span> nil<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>And we only need to <code data-astro-raw="">call</code> it, since it doesn’t expect any arguments:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">callq</span> <span class="token symbol_ function">_RCTProfileTrampolineEnd</span></code></pre>
+<h2 id="restore-the-callee-saved-registers-and-free-the-allocated-memory">Restore the callee-saved registers and free the allocated memory</h2>
+<p>As explained above, the callee-saved registers are the ones whose value is preserved when you call a function, which also implies that at the end of our functions, if we have modified them, we must restore their original values.</p>
+<p>We have to make sure to save the value currently stored in the callee-saved register <code data-astro-raw="">%r13</code> before we restore it. This register holds our caller’s address, to where we need to jump once we are done.</p>
+<p>Finally, after we restore the registers’ original values, we can <code data-astro-raw="">free</code> the memory.</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">pushq</span> <span class="token register class-name">%r13</span> <span class="token comment">; save the caller's address in the stack</span><span class="token keyword">
+movq</span> <span class="token register class-name">%r14</span>, <span class="token register class-name">%rdi</span> <span class="token comment">; move the heap's address to %rdi</span>
+
+<span class="token comment">; restore the callee-saved registers</span><span class="token keyword">
+movq</span> <span class="token number">0x0</span>(<span class="token register class-name">%r14</span>), <span class="token register class-name">%r13</span>
+<span class="token keyword">movq</span> <span class="token number">0x8</span>(<span class="token register class-name">%r14</span>), <span class="token register class-name">%r14</span>
+<span class="token keyword">
+callq</span> <span class="token symbol_ function">_free</span> <span class="token comment">; call free, since the address has already been placed in %rdi</span></code></pre>
+<h2 id="restore-the-returned-values-and-return-to-the-caller">Restore the returned values and return to the caller</h2>
+<p>All the work is done, we just have to restore the return registers so they have the same value as after the “actual function” returned. This is the same as returning any value that the “actual function” might have possibly returned.</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token keyword">popq</span> <span class="token register class-name">%rcx</span> <span class="token comment">; pop the return address into a temporary register</span><span class="token keyword">
+movdqa</span> <span class="token number">0x00</span>(<span class="token register class-name">%rsp</span>), <span class="token register class-name">%xmm0</span> <span class="token comment">; 1st floating point return register</span><span class="token keyword">
+movdqa</span> <span class="token number">0x10</span>(<span class="token register class-name">%rsp</span>), <span class="token register class-name">%xmm1</span> <span class="token comment">; 2nd floating point return register</span><span class="token keyword">
+addq</span> <span class="token number">$0x20</span>, <span class="token register class-name">%rsp</span> <span class="token comment">; return the size used for the two registers above</span><span class="token keyword">
+popq</span> <span class="token register class-name">%rdx</span> <span class="token comment">; 2nd return register</span><span class="token keyword">
+popq</span> <span class="token register class-name">%rax</span> <span class="token comment">; 1st return register</span></code></pre>
+<p>Last but not least, we <code data-astro-raw="">jmp</code> to our caller’s next instruction, so it keeps going on executing:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token comment">; jump to caller</span><span class="token keyword">
+jmpq</span> *<span class="token register class-name">%rcx</span></code></pre>
+<h1 id="notes">Notes</h1>
+<ul>
+<li>The full code, currently being used in React Native, can be found in the <a href="https://github.com/facebook/react-native/blob/master/React/Profiler/RCTProfileTrampoline-x86_64.S">GitHub repo</a> and has lots of comments.</li>
+<li>The snippets here don’t deal with memory alignment: the stack has to be 16-byte aligned before calling a function or operating on xmm and sse registers.</li>
+<li>The snippets also don’t match 1:1 with the current code, in some points I tried to make it simpler, in others I just thought it could be improved and will update the source code later.</li>
+<li>The repo also contains the <code data-astro-raw="">i386</code>, <code data-astro-raw="">armv7</code> and <code data-astro-raw="">arm64</code> versions, have fun.</li>
+</ul>
+<p><em>Assembly is fun! :D</em></p>
+<hr>
+<h1 id="external-links">External links</h1>
+<ul>
+<li><a href="http://facebook.github.io/react-native">React Native</a></li>
+<li><a href="http://developer.android.com/tools/help/systrace.html">Android Systrace</a></li>
+<li><a href="https://github.com/catapult-project/catapult/tree/master/tracing">Google trace-viewer</a></li>
+<li><a href="http://facebook.github.io/react-native/docs/native-modules-ios.html#content">React Native’s “Native Modules”</a></li>
+<li><a href="https://github.com/facebook/react-native/blob/master/React/Base/RCTBatchedBridge.m">React Native’s “Bridge”</a></li>
+<li><a href="https://github.com/facebook/react-native/blob/master/React/Modules/RCTUIManager.m">React Native’s “UIManager”</a></li>
+<li><a href="https://github.com/steipete/Aspects">Aspects by Peter Steinberger</a></li>
+<li><a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/#//apple_ref/c/func/objc_allocateClassPair">objc_allocateClassPair docs</a></li>
+<li><a href="http://www.opensource.apple.com/source/objc4/objc4-532.2/runtime/message.h">_objc_msgForward’s header file</a></li>
+<li><a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtForwarding.html">Message Forwarding docs</a></li>
+<li><a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSInvocation_Class/">NSInvocation class reference</a></li>
+<li><a href="https://github.com/facebook/react-native/blob/1b296904962709d06381523f39ccdffae775dd44/React/Base/RCTProfile.m#L183">Original RCTProfile implementation</a></li>
+<li><a href="https://geekanddad.wordpress.com/2013/03/14/1636/">Objective-C method invocation benchmarks</a></li>
+<li><a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/#//apple_ref/c/func/objc_msgSend">objc_msgSend docs</a></li>
+<li><a href="https://github.com/opensource-apple/objc4/blob/17d47b3989923007fa052f346b05a32fca389465/runtime/Messengers.subproj/objc-msg-x86_64.s#L289">objc_msgSend x86_64 implementation</a></li>
+<li><a href="https://www.mikeash.com/pyblog/friday-qa-2012-11-16-lets-build-objc_msgsend.html">“Let’s Build objc_msgSend” by Mike Ash</a></li>
+<li><a href="http://people.freebsd.org/~obrien/amd64-elf-abi.pdf">AMD64 ABI reference</a></li>
+<li><a href="https://github.com/facebook/react-native/blob/master/React/Profiler/RCTProfileTrampoline-x86_64.S">Trampoline x86_64 full implementation</a></li>
+</ul>
+        </div>
+
+        <footer class="footer astro-ZRE6QY23">
+          <section class="share astro-ZRE6QY23">
+            <button class="share-button astro-ZRE6QY23" aria-label="Share on Twitter" title="Share on Twitter">
+              <svg class="share-icon astro-ZRE6QY23" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1684 408q-67 98-162 167 1 14 1 42 0 130-38 259.5t-115.5 248.5-184.5 210.5-258 146-323 54.5q-271 0-496-145 35 4 78 4 225 0 401-138-105-2-188-64.5t-114-159.5q33 5 61 5 43 0 85-11-112-23-185.5-111.5t-73.5-205.5v-4q68 38 146 41-66-44-105-115t-39-154q0-88 44-163 121 149 294.5 238.5t371.5 99.5q-8-38-8-74 0-134 94.5-228.5t228.5-94.5q140 0 236 102 109-21 205-78-37 115-142 178 93-10 186-50z" class="astro-ZRE6QY23"></path>
+              </svg>
+              <span class="astro-ZRE6QY23">Share on Twitter</span>
+            </button>
+          </section>
+
+          <div id="disqus_thread" class="astro-ZRE6QY23"></div>
+
+          <script data-title="Writing a 'trampoline' in assembly for profiling" data-slug="writing-a-trampoline-in-assembly" data-permalink="https://tadeuzagallo.com/blog/writing-a-trampoline-in-assembly/">
+            const { title, slug, permalink } = document.currentScript.dataset;
+            var disqus_config = function () {
+              this.page.title = title;
+              this.page.identifier = slug;
+              this.page.url = permalink; 
+            };
+            (function() { // DON'T EDIT BELOW THIS LINE
+            var d = document, s = d.createElement('script');
+            s.src = 'https://tadeuzagallo.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+            })();
+          </script>
+          <script data-twitterurl="https://twitter.com/intent/tweet?text=&quot;Writing a 'trampoline' in assembly for profiling&quot; https://tadeuzagallo.com/blog/writing-a-trampoline-in-assembly/ via @tadeuzagallo&amp;hashtags=reactnative,ios,x86,asm">
+            const { twitterurl } = document.currentScript.dataset;
+            document.querySelector('.share-button').addEventListener('click', e => {
+              e.preventDefault();
+              window.open(twitterurl, 'twitter-share', 'width=800,height=800');
+            });
+          </script>
+        </footer>
+      </div>
+    </div>
+  
+
+
+</body></html>

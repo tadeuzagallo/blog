@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="en" class="astro-ZRE6QY23"><head>
+    
+<!-- Global Metadata -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="shortcut icon" type="image/png" href="/blog/favicon.ico">
+
+<!-- Primary Meta Tags -->
+<title>Writing an x86 emulator in JavaScript by Tadeu Zagallo</title>
+<meta name="title" content="Writing an x86 emulator in JavaScript by Tadeu Zagallo">
+<meta name="description">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:title" content="Writing an x86 emulator in JavaScript by Tadeu Zagallo">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://tadeuzagallo.com/blog/writing-an-x86-emulator-in-javascript/">
+<meta property="og:description">
+<meta property="og:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://tadeuzagallo.com/blog/writing-an-x86-emulator-in-javascript/">
+<meta property="twitter:title" content="Writing an x86 emulator in JavaScript by Tadeu Zagallo">
+<meta property="twitter:description">
+<meta property="twitter:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+<meta property="twitter:site" content="@tadeuzagallo">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet">
+
+<!-- Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-47264623-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-47264623-1');
+</script>
+
+<link rel="stylesheet" href="../assets/blog.0106c48b.css"><link rel="stylesheet" href="../assets/code.28b7c1f4.css"><link rel="stylesheet" href="../assets/index.aa768e43.css">
+
+		
+
+    
+  </head>
+  <body>
+    <div class="wrapper astro-ZRE6QY23">
+      <a class="gohome astro-ZRE6QY23" href="/blog/">All posts</a>
+      <div class="blog-post astro-ZRE6QY23">
+        <header class="header astro-ZRE6QY23">
+          <h1 class="astro-ZRE6QY23">Writing an x86 emulator in JavaScript</h1>
+          <p class="desc astro-ZRE6QY23"></p>
+          <time class="date-published astro-ZRE6QY23" datetime="September 13, 2015">
+            13 Sep 2015
+          </time>
+        </header>
+
+        <div class="blog-post-text astro-ZRE6QY23">
+          <h2 id="context">Context</h2>
+<p>As someone that doesn’t have a CS background I’ve always wanted to properly
+understand how things work at the lower level, and had decided to put more
+effort into it.</p>
+<p>As part of my learning path I got the book <em>Programming from the Ground Up</em> but
+hadn’t started yet, until I had an 11 hours flight to Brazil, and it felt like a
+good opportunity to start.</p>
+<p>I really liked the book, but it turns out the examples were written in Linux
+x86 GNU assembly, and I was on a Mac OS X 64 bits… I struggled a little bit
+bit between assembler and linker flags and syntax between <code data-astro-raw="">i386</code> and <code data-astro-raw="">x86_64</code>
+but couldn’t figure it without internet…</p>
+<p><em>(it turns out that for <code data-astro-raw="">i386</code> the return value for the exit syscall had to go
+into the stack instead of into <code data-astro-raw="">%ebx</code>, for <code data-astro-raw="">x86_64</code> the syscall numbers have an
+offset of <code data-astro-raw="">0x2000000</code>, different registers and you have to use <code data-astro-raw="">syscall</code> instead
+of <code data-astro-raw="">int $0x80</code>… all these things are not very easy when you’re first starting
+with assembly)</em></p>
+<p>I tried leaving it aside, but couldn’t stop thinking about it, so I started
+writing a very dummy x86 parser, that was enough for the exercises I got to do
+before running out of battery (nothing worse on a flight than no sockets).</p>
+<p>A couple months later we’d have a hackathon at Facebook, on the Chelsea stadium,
+and I thought it’d be cool to implement an x86 emulator, to understand how to
+actually execute a binary.</p>
+<p>Convincing people to work on this project wasn’t very easy either, and it took
+me some time to prove that I wasn’t crazy, that I had a reasonable idea of how
+hard it’d be to write a proper emulator, and to explain that I only wanted to
+write it for <code data-astro-raw="">fun</code> and support only very basic use cases. But at the end I got
+Uri Baghin to join me.</p>
+<h2 id="our-goal">Our Goal</h2>
+<p>Our initial goal was to run the simplest x86 program possible: just exit with
+code <code data-astro-raw="">0</code>:</p>
+<pre class="language-x86asm"><code data-astro-raw="" class="language-x86asm"><span class="token comment"># program.s</span>
+
+  <span class="token section comment">.section</span> <span class="token symbol_ function">__TEXT</span>,<span class="token symbol_ function">__text</span>
+  <span class="token section comment">.globl</span> <span class="token symbol_ function">start</span>
+<span class="token label function">start:</span><span class="token keyword">
+  mov</span> <span class="token number">$0x1</span>, <span class="token register class-name">%eax</span>
+<span class="token keyword">  push</span> <span class="token number">$0x0</span>
+<span class="token keyword">  call</span> <span class="token symbol_ function">_syscall</span>
+
+<span class="token label function">_syscall:</span><span class="token keyword">
+  int</span> <span class="token number">$0x80</span></code></pre>
+<p>Here’s how to build the above program in a Mac OS X:</p>
+<pre class="language-bash"><code data-astro-raw="" class="language-bash">$ as -static -arch i386 -o program.o program.s
+$ ld -static -arch i386 -o program program.o</code></pre>
+<p>And to test it, you can execute it and check the exit code with the following
+commands:</p>
+<pre class="language-bash"><code data-astro-raw="" class="language-bash">$ ./program
+$ <span class="token builtin class-name">echo</span> <span class="token variable">$?</span></code></pre>
+<p>So, we decided to split the problem in two: Finding the actual assembly
+instructions in the binary and executing them.</p>
+<h2 id="mach-o-binary-format">Mach-O Binary Format</h2>
+<p>The binary contains more than just the assembly code, it contains information
+about it’s layout, architecture support, how it should be loaded into memory and
+symbols present in the binary:</p>
+<p><img src="../assets/x86-emulator/mach_o_segments.gif" alt="Mach-O Binary image"></p>
+<p><em>Note: To have a better visualisation of the binary layout I recommend using
+<a href="http://sourceforge.net/projects/machoview/">MachOView</a>, it’s super helpful when
+investigating the binary itself.</em></p>
+<p>In order to find the assembly code inside the binary we need to read the load
+commands, more specifically the <code data-astro-raw="">LC_SEGMENT</code> commands, they have information
+about how to map the binary segments to virtual memory.</p>
+<p>The <code data-astro-raw="">LC_SEGMENT</code> load commands have a few fields</p>
+<ul>
+<li>Command (<code data-astro-raw="">LC_SEGMENT</code> in this case)</li>
+<li>Command Size</li>
+<li>Segment Name (e.g. __TEXT)</li>
+<li>VM Address (Location into virtual memory where segment should be copied)</li>
+<li>VM Size (Size of virtual memory the segment will use)</li>
+<li>File Offset (Location of the segment in the binary)</li>
+<li>File Size (Size of segment in the binary)</li>
+<li>Maximum VM Protection (Maximum protection level allowed for the VM)</li>
+<li>Initial VM Protetction (Initial protection level for the VM)</li>
+<li>Number of Sections (Number of sections contained in the segment)</li>
+<li>Flags (The possible flags can be found in
+<a href="http://www.opensource.apple.com/source/xnu/xnu-1456.1.26/EXTERNAL_HEADERS/mach-o/loader.h">mach-o/loader.h</a>
+right after the <code data-astro-raw="">struct segment_command</code>)</li>
+</ul>
+<p>But we can ignore the VM protection and flags for now, and just copy the
+contents of the binary from <code data-astro-raw="">File Offset</code> to <code data-astro-raw="">File Offset + File Size</code> into
+virtual memory (implemented as a simple <code data-astro-raw="">ArrayBuffer</code> in this case) from <code data-astro-raw="">VM Address</code> to <code data-astro-raw="">VM Address + VM Size</code>.</p>
+<p>Next thing we need the <code data-astro-raw="">LC_UNIXTHREAD</code> load command. It tells us the initial
+execution state of the main thread of the program.</p>
+<p>The important bit here for us is the initial value of <code data-astro-raw="">%eip</code> (the instruction
+pointer), it tells the position in virtual memory of the first program
+instruction, i.e. where the actual code starts (<em>note:</em> in the sample code we
+are using a global variable called <code data-astro-raw="">PC</code> instead of simulating a register).</p>
+<h2 id="binary-execution">Binary Execution</h2>
+<p>OK, so now we have the program code mapped to virtual memory, and a pointer to
+the beginning of the code, we <code data-astro-raw="">just</code> need to execute it. One thing that makes
+it more fun is that x86 has variable size instructions, so we have to read the
+opcode first in order to know how many bytes does it take.</p>
+<p><img src="../assets/x86-emulator/cpu1.jpg" alt="x86 Instruction Format"></p>
+<p>In order to Keep It Simple™ I disassembled the generated binary with <code data-astro-raw="">objdump</code>,
+a CLI that can be installed with the <code data-astro-raw="">binutils</code> package. It should look like:</p>
+<pre class="language-bash"><code data-astro-raw="" class="language-bash">$ brew <span class="token function">install</span> binutils <span class="token comment"># if you don't have it installed yet</span>
+$ gobjdump -d program
+
+Disassembly of section .text:
+
+00001ff2 <span class="token operator">&lt;</span>start<span class="token operator">&gt;</span>:
+    1ff2:       b8 01 00 00 00          mov    <span class="token variable">$0x1</span>,%eax
+    1ff7:       6a 00                   push   <span class="token variable">$0x0</span>
+    1ff9:       e8 00 00 00 00          call   1ffe <span class="token operator">&lt;</span>_syscall<span class="token operator">&gt;</span>
+
+00001ffe <span class="token operator">&lt;</span>_syscall<span class="token operator">&gt;</span>:
+    1ffe:       <span class="token builtin class-name">cd</span> <span class="token number">80</span>                   int    <span class="token variable">$0x80</span></code></pre>
+<p>Since I didn’t intend to implement a fully functional emulator, I just looked
+for what was the syntax for the necessary opcodes, a good reference for x86 can
+be found at
+<a href="http://ref.x86asm.net/coder.html">http://ref.x86asm.net/coder.html</a>.</p>
+<p>I created a map (the implementation was really a plain JavaScript object) from
+opcodes to functions. The functions would be responsible to read more data if
+needed by the opcode, e.g:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">var</span> Functions <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+Functions<span class="token punctuation">[</span><span class="token number">0x6a</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// Push one byte</span>
+  <span class="token function">push</span><span class="token punctuation">(</span><span class="token function">read</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>If the opcode is in fact an opcode prefix, then we have to read the next byte,
+the actual opcode:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">var</span> Fn0x0f <span class="token operator">=</span> <span class="token punctuation">{</span>
+  <span class="token comment">// jge</span>
+  <span class="token number">0</span><span class="token function-variable function">x8d</span><span class="token operator">:</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">var</span> dist <span class="token operator">=</span> <span class="token function">read</span><span class="token punctuation">(</span><span class="token number">4</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token constant">NG</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token constant">PC</span> <span class="token operator">+=</span> dist<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+  <span class="token comment">// ...</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+Functions<span class="token punctuation">[</span><span class="token number">0x0f</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// Call the actual function inside the prefix</span>
+  <span class="token keyword">var</span> fn <span class="token operator">=</span> <span class="token function">read</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  Fn0x0f<span class="token punctuation">[</span>fn<span class="token punctuation">]</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>The last thing we have to deal with are syscalls, we have to actually simulate
+it, so we have another map from sycall numbers to functions:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">var</span> Syscalls <span class="token operator">=</span> <span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">;</span>
+Syscalls<span class="token punctuation">[</span><span class="token number">0x01</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// Fake exit, since there's no OS</span>
+  console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span><span class="token string">'Program returned %s'</span><span class="token punctuation">,</span> Stack<span class="token punctuation">[</span>Registers<span class="token punctuation">[</span><span class="token constant">ESP</span> <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token constant">PC</span> <span class="token operator">=</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">;</span> <span class="token comment">// Mark the program as ended by setting the program counter to -1</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>In order to load the binary, we used the <a href="https://developer.mozilla.org/en-US/docs/Web/API/File">File
+API</a>. A html page is the
+entry point, with a single <code data-astro-raw="">input</code> to drop the binary and the output shows up in
+the console.</p>
+<h2 id="sample-code">Sample Code</h2>
+<p>The resulting code of the hackathon can be found in this
+<a href="https://gist.github.com/tadeuzagallo/3853299f033bf9b746e4">gist</a>, contains 3
+files as described: the loader (<code data-astro-raw="">mach-o.js</code>), the opcodes’ logic (<code data-astro-raw="">x86.js</code>) and
+the <code data-astro-raw="">index.html</code> that works as the entry point. The code can execute basic
+assembly and C programs.</p>
+<p><em>NOTE: it cannot execute libc, so C programs have to be compiled with
+<code data-astro-raw="">-static -nostdlib</code> and provide a custom assembly boostrap.</em></p>
+<p>Please keep in mind that the code is super simple, was completely written in a
+hackathon, so there wasn’t much effort into making it very readable (or very
+good for that matter) and we didn’t iterate any further on that.</p>
+<p>It was enough to run <code data-astro-raw="">fibonacci(40)</code> written in <code data-astro-raw="">C</code> compiled with <code data-astro-raw="">clang -O3</code>
+which took incredible <code data-astro-raw="">9m47s</code>.</p>
+<p><em>EDIT:</em> After reading <a href="https://news.ycombinator.com/item?id=10218755">this
+comment</a> on <code data-astro-raw="">HackerNews</code> I
+replaced <code data-astro-raw="">DataView</code> with <code data-astro-raw="">Uint8Array</code>, and <code data-astro-raw="">fibonacci(40)</code> is now down to a much
+better <code data-astro-raw="">1m53s</code>, making it faster than <code data-astro-raw="">perl</code> and <code data-astro-raw="">ruby 1.8</code> according to <a href="http://fengmk2.com/blog/2011/fibonacci/nodejs-python-php-ruby-lua.html">this
+comparison</a> <code data-astro-raw="">:)</code></p>
+        </div>
+
+        <footer class="footer astro-ZRE6QY23">
+          <section class="share astro-ZRE6QY23">
+            <button class="share-button astro-ZRE6QY23" aria-label="Share on Twitter" title="Share on Twitter">
+              <svg class="share-icon astro-ZRE6QY23" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1684 408q-67 98-162 167 1 14 1 42 0 130-38 259.5t-115.5 248.5-184.5 210.5-258 146-323 54.5q-271 0-496-145 35 4 78 4 225 0 401-138-105-2-188-64.5t-114-159.5q33 5 61 5 43 0 85-11-112-23-185.5-111.5t-73.5-205.5v-4q68 38 146 41-66-44-105-115t-39-154q0-88 44-163 121 149 294.5 238.5t371.5 99.5q-8-38-8-74 0-134 94.5-228.5t228.5-94.5q140 0 236 102 109-21 205-78-37 115-142 178 93-10 186-50z" class="astro-ZRE6QY23"></path>
+              </svg>
+              <span class="astro-ZRE6QY23">Share on Twitter</span>
+            </button>
+          </section>
+
+          <div id="disqus_thread" class="astro-ZRE6QY23"></div>
+
+          <script data-title="Writing an x86 emulator in JavaScript" data-slug="writing-an-x86-emulator-in-javascript" data-permalink="https://tadeuzagallo.com/blog/writing-an-x86-emulator-in-javascript/">
+            const { title, slug, permalink } = document.currentScript.dataset;
+            var disqus_config = function () {
+              this.page.title = title;
+              this.page.identifier = slug;
+              this.page.url = permalink; 
+            };
+            (function() { // DON'T EDIT BELOW THIS LINE
+            var d = document, s = d.createElement('script');
+            s.src = 'https://tadeuzagallo.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+            })();
+          </script>
+          <script data-twitterurl="https://twitter.com/intent/tweet?text=&quot;Writing an x86 emulator in JavaScript&quot; https://tadeuzagallo.com/blog/writing-an-x86-emulator-in-javascript/ via @tadeuzagallo&amp;hashtags=x86,emulator,javascript">
+            const { twitterurl } = document.currentScript.dataset;
+            document.querySelector('.share-button').addEventListener('click', e => {
+              e.preventDefault();
+              window.open(twitterurl, 'twitter-share', 'width=800,height=800');
+            });
+          </script>
+        </footer>
+      </div>
+    </div>
+  
+
+
+</body></html>

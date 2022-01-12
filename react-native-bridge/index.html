@@ -1,0 +1,324 @@
+<!DOCTYPE html><html lang="en" class="astro-ZRE6QY23"><head>
+    
+<!-- Global Metadata -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="shortcut icon" type="image/png" href="/blog/favicon.ico">
+
+<!-- Primary Meta Tags -->
+<title>Bridging in React Native by Tadeu Zagallo</title>
+<meta name="title" content="Bridging in React Native by Tadeu Zagallo">
+<meta name="description" content="An in-depth look into React Native's core">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:title" content="Bridging in React Native by Tadeu Zagallo">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://tadeuzagallo.com/blog/react-native-bridge/">
+<meta property="og:description" content="An in-depth look into React Native's core">
+<meta property="og:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://tadeuzagallo.com/blog/react-native-bridge/">
+<meta property="twitter:title" content="Bridging in React Native by Tadeu Zagallo">
+<meta property="twitter:description" content="An in-depth look into React Native's core">
+<meta property="twitter:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+<meta property="twitter:site" content="@tadeuzagallo">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet">
+
+<!-- Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-47264623-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-47264623-1');
+</script>
+
+<link rel="stylesheet" href="../assets/blog.0106c48b.css"><link rel="stylesheet" href="../assets/code.28b7c1f4.css"><link rel="stylesheet" href="../assets/index.aa768e43.css">
+
+		
+
+    
+  </head>
+  <body>
+    <div class="wrapper astro-ZRE6QY23">
+      <a class="gohome astro-ZRE6QY23" href="/blog/">All posts</a>
+      <div class="blog-post astro-ZRE6QY23">
+        <header class="header astro-ZRE6QY23">
+          <h1 class="astro-ZRE6QY23">Bridging in React Native</h1>
+          <p class="desc astro-ZRE6QY23">An in-depth look into React Native's core</p>
+          <time class="date-published astro-ZRE6QY23" datetime="October 14, 2015">
+            14 Oct 2015
+          </time>
+        </header>
+
+        <div class="blog-post-text astro-ZRE6QY23">
+          <p>On this post I assume you know the basics of React Native, and will focus on how the internals work when managing the communication between native and JavaScript.</p>
+<h2 id="main-threads">Main Threads</h2>
+<p>Before anything else, keep in mind that there are 3 <em>“main”</em> threads* in React Native:</p>
+<ul>
+<li>The <code data-astro-raw="">shadow queue</code>: where the layout happens</li>
+<li>The <code data-astro-raw="">main thread</code>: where UIKit does its thing</li>
+<li>The <code data-astro-raw="">JavaScript thread</code>: where your JS code is actually running</li>
+</ul>
+<p>Plus every native module has its own <a href="https://developer.apple.com/library/ios/documentation/General/Conceptual/ConcurrencyProgrammingGuide/OperationQueues/OperationQueues.html"><code data-astro-raw="">GCD Queue</code></a> unless it specifies otherwise (a more detailed explanation is coming).</p>
+<small>
+* The “shadow queue” is actually a 
+<code data-astro-raw="">GCD Queue</code>
+ rather than a thread, as the name suggests.
+</small>
+<h2 id="native-modules">Native Modules</h2>
+<p><em>If you don’t know how to create a Native Module yet, I’d recommend you check the <a href="http://facebook.github.io/react-native/docs/native-modules-ios.html#content">documentation</a> before.</em></p>
+<p>Here’s an example <code data-astro-raw="">Person</code> native module, that both, receives calls from JavaScript and calls into JS.</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc"><span class="token keyword">@interface</span> Person <span class="token punctuation">:</span> NSObject <span class="token operator">&lt;</span>RCTBridgeModule<span class="token operator">&gt;</span>
+<span class="token keyword">@end</span>
+
+<span class="token keyword">@implementation</span> Logger
+
+<span class="token function">RCT_EXPORT_MODULE</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
+
+<span class="token function">RCT_EXPORT_METHOD</span><span class="token punctuation">(</span>greet<span class="token punctuation">:</span><span class="token punctuation">(</span>NSString <span class="token operator">*</span><span class="token punctuation">)</span>name<span class="token punctuation">)</span>
+<span class="token punctuation">{</span>
+  <span class="token function">NSLog</span><span class="token punctuation">(</span><span class="token string">@"Hi, %@!"</span><span class="token punctuation">,</span> name<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">[</span>_bridge<span class="token punctuation">.</span>eventDispatcher sendAppEventWithName<span class="token punctuation">:</span><span class="token string">@"greeted"</span>
+                                           body<span class="token punctuation">:</span><span class="token operator">@</span><span class="token punctuation">{</span> <span class="token string">@"name"</span><span class="token punctuation">:</span> name <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token keyword">@end</span></code></pre>
+<p>We are going to focus on these two macros, <code data-astro-raw="">RCT_EXPORT_MODULE</code> and <code data-astro-raw="">RCT_EXPORT_METHOD</code>, what they expand into, what are their roles and how does it work from there.</p>
+<h2 id="rct_export_modulejs_name">RCT_EXPORT_MODULE([js_name])</h2>
+<p>As the name suggests, it <em>exports</em> your modules, but what does <em>export</em> mean in
+this specific context? It means making the bridge aware of your module.</p>
+<p>Its definition is actually pretty simple:</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name function">RCT_EXPORT_MODULE</span><span class="token expression"><span class="token punctuation">(</span>js_name<span class="token punctuation">)</span> </span><span class="token punctuation">\</span>
+  <span class="token expression">RCT_EXTERN <span class="token keyword">void</span> <span class="token function">RCTRegisterModule</span><span class="token punctuation">(</span>Class<span class="token punctuation">)</span><span class="token punctuation">;</span> </span><span class="token punctuation">\</span>
+  <span class="token expression"><span class="token operator">+</span> <span class="token punctuation">(</span>NSString \<span class="token operator">*</span><span class="token punctuation">)</span>moduleName <span class="token punctuation">{</span> <span class="token keyword">return</span> <span class="token operator">@</span>#js_name<span class="token punctuation">;</span> <span class="token punctuation">}</span> </span><span class="token punctuation">\</span>
+  <span class="token expression"><span class="token operator">+</span> <span class="token punctuation">(</span><span class="token keyword">void</span><span class="token punctuation">)</span>load <span class="token punctuation">{</span> <span class="token function">RCTRegisterModule</span><span class="token punctuation">(</span><span class="token keyword">self</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token punctuation">}</span></span></span></code></pre>
+<p>What does it do:</p>
+<ul>
+<li>It first declares <code data-astro-raw="">RCTRegisterModule</code> as an <code data-astro-raw="">extern</code> function, which means that the implementation of the function is not visible to the compiler but will be available at link time, than</li>
+<li>declares a method <code data-astro-raw="">moduleName</code>, that returns the optional macro parameter <code data-astro-raw="">js_name</code>, in case you want your module to have a name in JS other than the Objective-C class name, and last</li>
+<li>declares a <code data-astro-raw="">load</code> method (When the app is loaded into memory it’ll call the <code data-astro-raw="">load</code> method for every class) that calls the above declared <code data-astro-raw="">RCTRegisterModule</code> function to actually make the bridge aware of this module.</li>
+</ul>
+<h1 id="rct_export_methodmethod">RCT_EXPORT_METHOD(method)</h1>
+<p>This macro is <em>“more interesting”</em>, it doesn’t add anything to your actual method,
+it actually creates a new method in addition to declaring the one specified.</p>
+<p>This new method would look something like that for our example:</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc"><span class="token operator">+</span> <span class="token punctuation">(</span>NSArray <span class="token operator">*</span><span class="token punctuation">)</span>__rct_export__120
+<span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token operator">@</span><span class="token punctuation">[</span> <span class="token string">@""</span><span class="token punctuation">,</span> <span class="token string">@"log:(NSString *)message"</span> <span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<small>
+“What the heck is that?” would be a very acceptable first reaction.
+</small>
+<p>It’s generated by concatenating the prefix (<code data-astro-raw="">__rct_export__</code>) with an optional
+<code data-astro-raw="">js_name</code> (empty in this case) with the line number of the declartion (e.g.
+<code data-astro-raw="">12</code>) with the <a href="https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html"><code data-astro-raw="">__COUNTER__</code></a> macro.</p>
+<p>The purpose of this method is only returning an array that contains the optional
+<code data-astro-raw="">js_name</code> (again, empty in this case) and the method signature. The hack on the
+name is only to avoid method clashing*.</p>
+<small>
+*it’s still technically possible to have 2 generated methods with the same name if you’re using a category, but very much unlikely and shouldn’t result in any expected behaviour, although Xcode will warn you that it has an unexpected behaviour.
+</small>
+<h2 id="runtime">Runtime</h2>
+<p>This whole setup is only to provide information to the bridge, so it can find everything that was exported, modules and methods, but this all happens at load time, now we’ll look at how it’s used at runtime.</p>
+<p>Here’s the bridge initialisation dependency graph:</p>
+<p><img src="../assets/react-native-bridge/initialisation.svg" alt="Bridge Initialisation"></p>
+<h4 id="initialise-modules">Initialise Modules</h4>
+<p>All the <code data-astro-raw="">RCTRegisterModule</code> function does is add the class to an array so the bridge can find it later when a new bridge instance is created. It goes through the modules array, create an instance of every module, store a reference to it on the bridge, give it a reference back to the bridge (so we can call both ways), and check if it has specified in which <code data-astro-raw="">queue</code> it wants to run, otherwise we give it a new queue, separate from all other modules.</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc">NSMutableDictionary <span class="token operator">*</span>modulesByName<span class="token punctuation">;</span> <span class="token comment">// = ...</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span>Class moduleClass <span class="token keyword">in</span> <span class="token function">RCTGetModuleClasses</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// ...</span>
+  module <span class="token operator">=</span> <span class="token punctuation">[</span>moduleClass new<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">[</span>module respondsToSelector<span class="token punctuation">:</span><span class="token keyword">@selector</span><span class="token punctuation">(</span>setBridge<span class="token punctuation">:</span><span class="token punctuation">)</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    module<span class="token punctuation">.</span>bridge <span class="token operator">=</span> <span class="token keyword">self</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+  modulesByName<span class="token punctuation">[</span>moduleName<span class="token punctuation">]</span> <span class="token operator">=</span> module<span class="token punctuation">;</span>
+  <span class="token comment">// ...</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="configure-modules">Configure Modules</h4>
+<p>Once we have our modules, in a background thread, we list all the methods for each module, and call the methods that begin with <code data-astro-raw="">__rct_export__</code>, so we can have a string representation of the method signature. That’s important so we can have the actual types of the parameters, i.e. at runtime we’d only be able to know that a parameter is an <code data-astro-raw="">id</code>, this way we can know that it’s actually an <code data-astro-raw="">NSString *</code> in this case.</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc"><span class="token keyword">unsigned</span> <span class="token keyword">int</span> methodCount<span class="token punctuation">;</span>
+Method <span class="token operator">*</span>methods <span class="token operator">=</span> <span class="token function">class_copyMethodList</span><span class="token punctuation">(</span>moduleClass<span class="token punctuation">,</span> <span class="token operator">&amp;</span>methodCount<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">unsigned</span> <span class="token keyword">int</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator">&lt;</span> methodCount<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  Method method <span class="token operator">=</span> methods<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  SEL selector <span class="token operator">=</span> <span class="token function">method_getName</span><span class="token punctuation">(</span>method<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token function">NSStringFromSelector</span><span class="token punctuation">(</span>selector<span class="token punctuation">)</span> hasPrefix<span class="token punctuation">:</span><span class="token string">@"__rct_export__"</span><span class="token punctuation">]</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    IMP imp <span class="token operator">=</span> <span class="token function">method_getImplementation</span><span class="token punctuation">(</span>method<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    NSArray <span class="token operator">*</span>entries <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">(</span>NSArray <span class="token operator">*</span><span class="token punctuation">(</span><span class="token operator">*</span><span class="token punctuation">)</span><span class="token punctuation">(</span>id<span class="token punctuation">,</span> SEL<span class="token punctuation">)</span><span class="token punctuation">)</span>imp<span class="token punctuation">)</span><span class="token punctuation">(</span>_moduleClass<span class="token punctuation">,</span> selector<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token comment">//...</span>
+    <span class="token punctuation">[</span>moduleMethods addObject<span class="token punctuation">:</span><span class="token comment">/* Object representing the method */</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h4 id="setup-javascript-executor">Setup JavaScript Executor</h4>
+<p>The JavaScript executors have a <code data-astro-raw="">-setUp</code> method that allows it to do more expensive work, like initialising JavaScriptCore, on a background thread. It also saves some work, since only the active executor will receive the <code data-astro-raw="">setUp</code> call, rather than all the executors available.</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc">JSGlobalContextRef ctx <span class="token operator">=</span> <span class="token function">JSGlobalContextCreate</span><span class="token punctuation">(</span><span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+_context <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">[</span>RCTJavaScriptContext alloc<span class="token punctuation">]</span> initWithJSContext<span class="token punctuation">:</span>ctx<span class="token punctuation">]</span><span class="token punctuation">;</span></code></pre>
+<h4 id="inject-json-configuration">Inject JSON Configuration</h4>
+<p>The JSON configuration containing only our module would be something like:</p>
+<pre class="language-js"><code data-astro-raw="" class="language-js"><span class="token punctuation">{</span>
+  <span class="token string">"remoteModuleConfig"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token string">"Logger"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+      <span class="token string">"constants"</span><span class="token operator">:</span> <span class="token punctuation">{</span> <span class="token comment">/* If we had exported constants... */</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+      <span class="token string">"moduleID"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
+      <span class="token string">"methods"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token string">"requestPermissions"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+          <span class="token string">"type"</span><span class="token operator">:</span> <span class="token string">"remote"</span><span class="token punctuation">,</span>
+          <span class="token string">"methodID"</span><span class="token operator">:</span> <span class="token number">1</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<p>This is store in the JavaScript VM as a global variable, so when the JS side of the bridge is initialised it can use this information to create the modules.</p>
+<h4 id="load-javascript-code">Load JavaScript Code</h4>
+<p>This is pretty intuitive, just load the source code from whatever provider was specified. Usually downloads the source from the packager during development or load it from disk in production.</p>
+<h4 id="execute-javascript-code">Execute JavaScript Code</h4>
+<p>Once everything is ready, we can load the application source code in the JavaScriptCore VM, that will copy the source, parse and execute it. In the initial execution it should register all the CommonJS modules and require the entry point file.</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc">JSValueRef jsError <span class="token operator">=</span> <span class="token constant">NULL</span><span class="token punctuation">;</span>
+JSStringRef execJSString <span class="token operator">=</span> <span class="token function">JSStringCreateWithCFString</span><span class="token punctuation">(</span><span class="token punctuation">(</span>__bridge CFStringRef<span class="token punctuation">)</span>script<span class="token punctuation">)</span><span class="token punctuation">;</span>
+JSStringRef jsURL <span class="token operator">=</span> <span class="token function">JSStringCreateWithCFString</span><span class="token punctuation">(</span><span class="token punctuation">(</span>__bridge CFStringRef<span class="token punctuation">)</span>sourceURL<span class="token punctuation">.</span>absoluteString<span class="token punctuation">)</span><span class="token punctuation">;</span>
+JSValueRef result <span class="token operator">=</span> <span class="token function">JSEvaluateScript</span><span class="token punctuation">(</span>strongSelf<span class="token operator">-&gt;</span>_context<span class="token punctuation">.</span>ctx<span class="token punctuation">,</span> execJSString<span class="token punctuation">,</span> <span class="token constant">NULL</span><span class="token punctuation">,</span> jsURL<span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">,</span> <span class="token operator">&amp;</span>jsError<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">JSStringRelease</span><span class="token punctuation">(</span>jsURL<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">JSStringRelease</span><span class="token punctuation">(</span>execJSString<span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+<h2 id="modules-in-javascript">Modules in JavaScript</h2>
+<p>The modules generated from JSON configuration showed above will be available in JavaScript through the <code data-astro-raw="">NativeModules</code> object of <code data-astro-raw="">react-native</code>, e.g.:</p>
+<pre class="language-js"><code data-astro-raw="" class="language-js"><span class="token keyword">var</span> <span class="token punctuation">{</span> NativeModules <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'react-native'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> <span class="token punctuation">{</span> Person <span class="token punctuation">}</span> <span class="token operator">=</span> NativeModules<span class="token punctuation">;</span>
+
+Person<span class="token punctuation">.</span><span class="token function">greet</span><span class="token punctuation">(</span><span class="token string">'Tadeu'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>The way it works is that when you call a method it goes to a queue, containing the module name, the method name and all the arguments used to call it. At the end of the JavaScript execution this queue is given back to native to execute this calls.</p>
+<h2 id="call-cycle">Call cycle</h2>
+<p>Now if we call the module with the code from above, here’s what it looks like:</p>
+<p><img src="../assets/react-native-bridge/graph.svg" alt="Graph"></p>
+<p>The calls have to start from native* it calls into JS, and during the execution, as it calls methods on <code data-astro-raw="">NativeModules</code>, it enqueues calls that have to be executed on the native side. When the JS finishes, native goes through the enqueued calls, and as it executes them, callbacks and calls through the bridge (using the <code data-astro-raw="">_bridge</code> instance available through a native module to call <code data-astro-raw="">enqueueJSCall:args:</code>) are used to call back into JS again.</p>
+<small>
+* The graph just pictures a moment middle JavaScript execution
+</small>
+<small>
+<code data-astro-raw="">NOTE:</code>
+ If you’ve been following the project, there used to be a queue of calls from native -&gt; JS as well, that’d be dispatched on every vSYNC, but it’s been removed in order to improve start up time.
+</small>
+<h2 id="argument-types">Argument types</h2>
+<p>For calls from native to JS it’s easier, the arguments are passed as an <code data-astro-raw="">NSArray</code> that we just encode as JSON, but for the calls from JS we need the native type, for that we check for primitives explicitly (i.e. ints, floats, chars, etc…) but as mentioned above, for any objects (and structs), the runtime doesn’t give us enough information from the <code data-astro-raw="">NSMethodSignature</code>, and we save the types as strings.</p>
+<p>We use regular expression to extract the types from the method signature, and we use the <a href="https://github.com/facebook/react-native/blob/master/React/Base/RCTConvert.m"><code data-astro-raw="">RCTConvert</code></a> utility class to actually transform the objects, it has a method for every type supported by default, and it tries to convert the <code data-astro-raw="">JSON</code> input into the desired type.</p>
+<p>We use <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/#//apple_ref/c/func/objc_msgSend"><code data-astro-raw="">objc_msgSend</code></a> to call the method dynamically, unless it’s a <code data-astro-raw="">struct</code>, since there’s no version of <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/ObjCRuntimeRef/#//apple_ref/c/func/objc_msgSend_stret"><code data-astro-raw="">objc_msgSend_stret</code></a> on <code data-astro-raw="">arm64</code>, so we fallback to <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Reference/Foundation/Classes/NSInvocation_Class/"><code data-astro-raw="">NSInvocation</code></a>.</p>
+<p>Once we converted all the arguments, we use another <code data-astro-raw="">NSInvocation</code> to call the
+target module and method, with all the parameters.</p>
+<p>Here’s an example:</p>
+<pre class="language-objectivec"><code data-astro-raw="" class="language-objectivec"><span class="token comment">// If you had the following method in a given module, e.g. `MyModule`</span>
+<span class="token function">RCT_EXPORT_METHOD</span><span class="token punctuation">(</span>methodWithArray<span class="token punctuation">:</span><span class="token punctuation">(</span>NSArray <span class="token operator">*</span><span class="token punctuation">)</span> size<span class="token punctuation">:</span><span class="token punctuation">(</span>CGRect<span class="token punctuation">)</span>size<span class="token punctuation">)</span> <span class="token punctuation">{</span><span class="token punctuation">}</span>
+
+<span class="token comment">// And called it from JS, like:</span>
+<span class="token function">require</span><span class="token punctuation">(</span><span class="token string">'NativeModules'</span><span class="token punctuation">)</span><span class="token punctuation">.</span>MyModule<span class="token punctuation">.</span><span class="token function">method</span><span class="token punctuation">(</span><span class="token punctuation">[</span><span class="token string">'a'</span><span class="token punctuation">,</span> <span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  x<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  y<span class="token punctuation">:</span> <span class="token number">0</span><span class="token punctuation">,</span>
+  width<span class="token punctuation">:</span> <span class="token number">200</span><span class="token punctuation">,</span>
+  height<span class="token punctuation">:</span> <span class="token number">100</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// The JS queue sent to native would then look like the following:</span>
+<span class="token comment">// ** Remember that it's a queue of calls, so all the fields are arrays **</span>
+<span class="token operator">@</span><span class="token punctuation">[</span>
+  <span class="token operator">@</span><span class="token punctuation">[</span> <span class="token operator">@</span><span class="token number">0</span> <span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token comment">// module IDs</span>
+  <span class="token operator">@</span><span class="token punctuation">[</span> <span class="token operator">@</span><span class="token number">1</span> <span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token comment">// method IDs</span>
+  <span class="token operator">@</span><span class="token punctuation">[</span>       <span class="token comment">// arguments</span>
+    <span class="token operator">@</span><span class="token punctuation">[</span>
+      <span class="token operator">@</span><span class="token punctuation">[</span><span class="token string">@"a"</span><span class="token punctuation">,</span> <span class="token operator">@</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+      <span class="token operator">@</span><span class="token punctuation">{</span> <span class="token string">@"x"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token string">@"y"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token string">@"width"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">200</span><span class="token punctuation">,</span> <span class="token string">@"height"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">100</span> <span class="token punctuation">}</span>
+    <span class="token punctuation">]</span>
+  <span class="token punctuation">]</span>
+<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+<span class="token comment">// This would convert into the following calls (pseudo code)</span>
+NSInvocation call
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">GetModuleForId</span><span class="token punctuation">(</span><span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">)</span>
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">GetMethodForId</span><span class="token punctuation">(</span><span class="token operator">@</span><span class="token number">1</span><span class="token punctuation">)</span>
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">obj_msgSend</span><span class="token punctuation">(</span>RCTConvert<span class="token punctuation">,</span> NSArray<span class="token punctuation">,</span> <span class="token operator">@</span><span class="token punctuation">[</span><span class="token string">@"a"</span><span class="token punctuation">,</span> <span class="token operator">@</span><span class="token number">1</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+call<span class="token punctuation">[</span>args<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token function">NSInvocation</span><span class="token punctuation">(</span>RCTConvert<span class="token punctuation">,</span> CGRect<span class="token punctuation">,</span> <span class="token operator">@</span><span class="token punctuation">{</span> <span class="token string">@"x"</span><span class="token punctuation">:</span> <span class="token operator">@</span><span class="token number">0</span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span> <span class="token punctuation">}</span><span class="token punctuation">)</span>
+<span class="token function">call</span><span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+<h2 id="threading">Threading</h2>
+<p>As mentioned above, every module will have it’s own <a href="https://developer.apple.com/library/ios/documentation/General/Conceptual/ConcurrencyProgrammingGuide/OperationQueues/OperationQueues.html"><code data-astro-raw="">GCD Queue</code></a> by default, unless it specifies the queue it wants to run on, by implementing the <code data-astro-raw="">-methodQueue</code> method or synthesizing the <code data-astro-raw="">methodQueue</code> property with a valid queue. The exceptions are <code data-astro-raw="">View Managers</code>* (That extend <a href="https://github.com/facebook/react-native/blob/master/React/Views/RCTViewManager.m"><code data-astro-raw="">RCTViewManager</code></a>) that will use the <code data-astro-raw="">Shadow Queue</code> by default, and the special target <code data-astro-raw="">RCTJSThread</code>, which is just a placeholder, since it’s a <code data-astro-raw="">thread</code> rather than a <code data-astro-raw="">queue</code>.</p>
+<small>
+* 
+<code data-astro-raw="">View Managers</code>
+ not a real exception, since the base class explicitly specifies the shadow queue as the target queue.
+</small>
+<p>The current threading “rules” are as following:</p>
+<ul>
+<li><code data-astro-raw="">-init</code> and <code data-astro-raw="">-setBridge:</code> are guaranteed to be called on the main thread;</li>
+<li>All the exported methods are guaranteed to be called on the target queue;</li>
+<li>If you implement the <a href="https://github.com/facebook/react-native/blob/master/React/Base/RCTInvalidating.h"><code data-astro-raw="">RCTInvalidating</code></a> protocol, <code data-astro-raw="">invalidate</code> is also guaranteed to be called on the target queue;</li>
+<li>There’s no guarantees for which thread <code data-astro-raw="">-dealloc</code> is going to be called from.</li>
+</ul>
+<p>When a batch of calls is received from JS, the calls will be groupped by target queue, and dispatched in parallel:</p>
+<pre class="language-objc"><code data-astro-raw="" class="language-objc"><span class="token comment">// group `calls` by `queue` in `buckets`</span>
+<span class="token keyword">for</span> <span class="token punctuation">(</span>id queue <span class="token keyword">in</span> buckets<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  dispatch_block_t block <span class="token operator">=</span> <span class="token operator">^</span><span class="token punctuation">{</span>
+    NSOrderedSet <span class="token operator">*</span>calls <span class="token operator">=</span> <span class="token punctuation">[</span>buckets objectForKey<span class="token punctuation">:</span>queue<span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token keyword">for</span> <span class="token punctuation">(</span>NSNumber <span class="token operator">*</span>indexObj <span class="token keyword">in</span> calls<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token comment">// Actually call</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">;</span>
+
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>queue <span class="token operator">==</span> RCTJSThread<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token punctuation">[</span>_javaScriptExecutor executeBlockOnJavaScriptQueue<span class="token punctuation">:</span>block<span class="token punctuation">]</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>queue<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token function">dispatch_async</span><span class="token punctuation">(</span>queue<span class="token punctuation">,</span> block<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="the-end">The end</h2>
+<p>That’s it, that’s a slightly more in-depth overview of how the bridge works. I
+hope that people that want to build more complex modules and/or contribute to
+the core framework find it helpful.</p>
+<p>Feel free to reach out to me if anything wasn’t clear, or not in-depth enough
+or if there’s anything you’d like to hear about next!</p>
+        </div>
+
+        <footer class="footer astro-ZRE6QY23">
+          <section class="share astro-ZRE6QY23">
+            <button class="share-button astro-ZRE6QY23" aria-label="Share on Twitter" title="Share on Twitter">
+              <svg class="share-icon astro-ZRE6QY23" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1684 408q-67 98-162 167 1 14 1 42 0 130-38 259.5t-115.5 248.5-184.5 210.5-258 146-323 54.5q-271 0-496-145 35 4 78 4 225 0 401-138-105-2-188-64.5t-114-159.5q33 5 61 5 43 0 85-11-112-23-185.5-111.5t-73.5-205.5v-4q68 38 146 41-66-44-105-115t-39-154q0-88 44-163 121 149 294.5 238.5t371.5 99.5q-8-38-8-74 0-134 94.5-228.5t228.5-94.5q140 0 236 102 109-21 205-78-37 115-142 178 93-10 186-50z" class="astro-ZRE6QY23"></path>
+              </svg>
+              <span class="astro-ZRE6QY23">Share on Twitter</span>
+            </button>
+          </section>
+
+          <div id="disqus_thread" class="astro-ZRE6QY23"></div>
+
+          <script data-title="Bridging in React Native" data-slug="react-native-bridge" data-permalink="https://tadeuzagallo.com/blog/react-native-bridge/">
+            const { title, slug, permalink } = document.currentScript.dataset;
+            var disqus_config = function () {
+              this.page.title = title;
+              this.page.identifier = slug;
+              this.page.url = permalink; 
+            };
+            (function() { // DON'T EDIT BELOW THIS LINE
+            var d = document, s = d.createElement('script');
+            s.src = 'https://tadeuzagallo.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+            })();
+          </script>
+          <script data-twitterurl="https://twitter.com/intent/tweet?text=&quot;Bridging in React Native&quot; https://tadeuzagallo.com/blog/react-native-bridge/ via @tadeuzagallo&amp;hashtags=reactnative,ios">
+            const { twitterurl } = document.currentScript.dataset;
+            document.querySelector('.share-button').addEventListener('click', e => {
+              e.preventDefault();
+              window.open(twitterurl, 'twitter-share', 'width=800,height=800');
+            });
+          </script>
+        </footer>
+      </div>
+    </div>
+  
+
+
+</body></html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html><html lang="en" class="astro-ZRE6QY23"><head>
+    
+<!-- Global Metadata -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="shortcut icon" type="image/png" href="/blog/favicon.ico">
+
+<!-- Primary Meta Tags -->
+<title>A λ-calculus interpreter by Tadeu Zagallo</title>
+<meta name="title" content="A λ-calculus interpreter by Tadeu Zagallo">
+<meta name="description" content="in less than 200 lines of JavaScript">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:title" content="A λ-calculus interpreter by Tadeu Zagallo">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://tadeuzagallo.com/blog/writing-a-lambda-calculus-interpreter-in-javascript-original/">
+<meta property="og:description" content="in less than 200 lines of JavaScript">
+<meta property="og:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://tadeuzagallo.com/blog/writing-a-lambda-calculus-interpreter-in-javascript-original/">
+<meta property="twitter:title" content="A λ-calculus interpreter by Tadeu Zagallo">
+<meta property="twitter:description" content="in less than 200 lines of JavaScript">
+<meta property="twitter:image" content="https://tadeuzagallo.com/blog/images/logo.jpg">
+<meta property="twitter:site" content="@tadeuzagallo">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet">
+
+<!-- Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-47264623-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-47264623-1');
+</script>
+
+<link rel="stylesheet" href="../assets/blog.0106c48b.css"><link rel="stylesheet" href="../assets/code.28b7c1f4.css"><link rel="stylesheet" href="../assets/index.aa768e43.css">
+
+		
+
+    
+  </head>
+  <body>
+    <div class="wrapper astro-ZRE6QY23">
+      <a class="gohome astro-ZRE6QY23" href="/blog/">All posts</a>
+      <div class="blog-post astro-ZRE6QY23">
+        <header class="header astro-ZRE6QY23">
+          <h1 class="astro-ZRE6QY23">A λ-calculus interpreter</h1>
+          <p class="desc astro-ZRE6QY23">in less than 200 lines of JavaScript</p>
+          <time class="date-published astro-ZRE6QY23" datetime="June 22, 2016">
+            22 Jun 2016
+          </time>
+        </header>
+
+        <div class="blog-post-text astro-ZRE6QY23">
+          <p>Recently <a href="https://twitter.com/tadeuzagallo/status/742836038264098817">I tweeted about falling in love with Lambda Calculus</a>, and how simple and powerful it is.</p>
+<p>Of course I had heard of λ-calculus before, but it wasn’t until I read the book <a href="https://www.cis.upenn.edu/~bcpierce/tapl">Types and Programming Languages</a> that I could really see the beauty in it.</p>
+<p>There are many compiler/parser/interpreter tutorials out there, but most won’t guide you through the complete implementation of a language, since implementing full language semantics is usually lot of work, but in this case, λ-calculus is so simple that we can cover it all!</p>
+<p>First of all, what is λ-calculus? Here’s the <a href="https://en.wikipedia.org/wiki/Lambda_calculus">Wikipedia</a> description:</p>
+<blockquote>
+<p>Lambda calculus (also written as λ-calculus) is a formal system in mathematical logic for expressing computation based on function abstraction and application using variable binding and substitution. It is a universal model of computation that can be used to simulate any single-taped Turing machine and was first introduced by mathematician Alonzo Church in the 1930s as part of an investigation into the foundations of mathematics.</p>
+</blockquote>
+<p>And here’s what a very simple λ-calculus program looks like:</p>
+<pre class="language-haskell"><code data-astro-raw="" class="language-haskell"><span class="token punctuation">(</span>λ<span class="token hvariable">x</span><span class="token punctuation">.</span> λ<span class="token hvariable">y</span><span class="token punctuation">.</span> <span class="token hvariable">x</span><span class="token punctuation">)</span> <span class="token punctuation">(</span>λ<span class="token hvariable">y</span><span class="token punctuation">.</span> <span class="token hvariable">y</span><span class="token punctuation">)</span> <span class="token punctuation">(</span>λ<span class="token hvariable">x</span><span class="token punctuation">.</span> <span class="token hvariable">x</span><span class="token punctuation">)</span></code></pre>
+<p>You only have two constructions in λ-calculus: Function abstractions (i.e. a function declaration) and applications (i.e. function calls), and yet, you can do any computation with it!</p>
+<h2 id="1-grammar">1. Grammar</h2>
+<p>Before writing a parser, the first thing we need to know is what is the grammar for the language we’ll be parsing, here’s the <a href="https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_Form">BNF</a>:</p>
+<pre class="language-bnf"><code data-astro-raw="" class="language-bnf">Term <span class="token operator">::=</span> Application
+       <span class="token operator">|</span> LAMBDA LCID DOT Term
+
+Application <span class="token operator">::=</span> Application Atom
+              <span class="token operator">|</span> Atom
+
+Atom <span class="token operator">::=</span> LPAREN Term RPAREN
+       <span class="token operator">|</span> LCID</code></pre>
+<p>The grammar tells us how to look for tokens during parsing.
+But wait, what are tokens?</p>
+<h2 id="2-tokens">2. Tokens</h2>
+<p>As you might already know, the parser doesn’t operate on source code. Before parsing we run the source code through the <code data-astro-raw="">Lexer</code>, which will break the source code into tokens (which are the ones in all caps in the grammar).  Here are the tokens we can extract from the grammar above:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token constant">LPAREN</span><span class="token operator">:</span> <span class="token string">'('</span>
+<span class="token constant">RPAREN</span><span class="token operator">:</span> <span class="token string">')'</span>
+<span class="token constant">LAMBDA</span><span class="token operator">:</span> <span class="token string">'λ'</span> <span class="token comment">// we'll also allow '\' for convenience</span>
+<span class="token constant">DOT</span><span class="token operator">:</span> <span class="token string">'.'</span>
+
+<span class="token comment">// LCID stands for LowerCase IDentifier</span>
+<span class="token comment">// i.e. any string starting with a lowercase letter</span>
+<span class="token constant">LCID</span><span class="token operator">:</span> <span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">[a-z][a-zA-Z]*</span><span class="token regex-delimiter">/</span></span>
+                    </code></pre>
+<p>We’ll have a <code data-astro-raw="">Token</code> class, that can hold a <code data-astro-raw="">type</code> (one of the above) and an optional value (e.g. for the string in <code data-astro-raw="">LCID</code>).</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">class</span> <span class="token class-name">Token</span> <span class="token punctuation">{</span>
+  <span class="token function">constructor</span><span class="token punctuation">(</span><span class="token parameter">type<span class="token punctuation">,</span> value</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>type <span class="token operator">=</span> type<span class="token punctuation">;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>value <span class="token operator">=</span> value<span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<h2 id="3-lexer">3. Lexer</h2>
+<p>Now we can use the tokens defined above to write a <code data-astro-raw="">Lexer</code>, providing a nice <em>API</em> for the parser to consume the program.</p>
+<p>The token creation part of the Lexer is not very exciting: it’s one big switch statement that checks the next char in the source code:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token function">_nextToken</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">switch</span> <span class="token punctuation">(</span>c<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">case</span> <span class="token string">'λ'</span><span class="token operator">:</span>
+    <span class="token keyword">case</span> <span class="token string">'\\'</span><span class="token operator">:</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>_token <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Token</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LAMBDA</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">case</span> <span class="token string">'.'</span><span class="token operator">:</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>_token <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Token</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">DOT</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">case</span> <span class="token string">'('</span><span class="token operator">:</span>
+      <span class="token keyword">this</span><span class="token punctuation">.</span>_token <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Token</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LPAREN</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token keyword">break</span><span class="token punctuation">;</span>
+
+    <span class="token comment">/* ... */</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<p>And here are the helper methods, to consume the tokens:</p>
+<ul>
+<li><code data-astro-raw="">next(Token)</code>: returns whether the next token matches <code data-astro-raw="">Token</code>;</li>
+<li><code data-astro-raw="">skip(Token)</code>: same as <code data-astro-raw="">next</code>, but skips the token if it matches;</li>
+<li><code data-astro-raw="">match(Token)</code>: assert that <code data-astro-raw="">next</code> is true, and <code data-astro-raw="">skip</code>;</li>
+<li><code data-astro-raw="">token(Token)</code>: assert that <code data-astro-raw="">next</code> is true, and return the token.</li>
+</ul>
+<p>Okay, now, to the <code data-astro-raw="">Parser</code>!</p>
+<h2 id="4-parser">4. Parser</h2>
+<p>The parser is basically a copy of the grammar. We create one method for each production rule, based on its name (in  the left-hand side of the <code data-astro-raw="">::=</code>) and follow the right-hand side: If it’s an all caps word, it means it’s a <em>terminal</em> (i.e. a token), and we consume it from the lexer. If it’s a capitalised word, it’s another production, so we call the method for it. When we find an <code data-astro-raw="">|</code> (reads “or”) we have to decide which side to use, we’ll do that based which of the sides match the tokens we have.</p>
+<p>There’s only one tricky bit about this grammar: hand written parsers are usually <a href="https://en.wikipedia.org/wiki/Recursive_descent_parser">recursive descent</a> (ours will be), and they can’t handle left recursion. You might have noticed that the right-hand side of the <code data-astro-raw="">Application</code> production, contains <code data-astro-raw="">Application</code> itself in the first position, so if we just follow the procedure described in the previous paragraph, where we call all the productions we find, we’ll have an infinite recursion.</p>
+<p>Luckily left recursions can be removed with one simple trick:</p>
+<pre class="language-bnf"><code data-astro-raw="" class="language-bnf">Application <span class="token operator">::=</span> Atom Application'
+
+Application<span class="token string">' ::= Atom Application'</span>
+               <span class="token operator">|</span> ε  /<span class="token operator">*</span> empty <span class="token operator">*</span>/</code></pre>
+<h3 id="41-ast">4.1. AST</h3>
+<p>As we parse, we need to store the parsed information somehow, and for that we’ll create an <a href="https://en.wikipedia.org/wiki/Abstract_syntax_tree">Abstract Syntax Tree (AST)</a>. The tree for the λ-calculus is really simple, as we can only have 3 kinds of nodes: Abstraction, Application and Identifier.</p>
+<p>The <em>Abstraction</em> holds its parameter and its body, the <em>Application</em> holds the left- and right-hand side of the application and the <em>Identifier</em> is a leaf node, that only holds the string representation of the identifier itself.</p>
+<p>Here’s a simple program with its AST:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token punctuation">(</span>λx<span class="token punctuation">.</span> x<span class="token punctuation">)</span> <span class="token punctuation">(</span>λy<span class="token punctuation">.</span> y<span class="token punctuation">)</span>
+
+Application <span class="token punctuation">{</span>
+  abstraction<span class="token operator">:</span> Abstraction <span class="token punctuation">{</span>
+    param<span class="token operator">:</span> Identifier <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'x'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    body<span class="token operator">:</span> Identifier <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'x'</span> <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span><span class="token punctuation">,</span>
+  value<span class="token operator">:</span> Abstraction <span class="token punctuation">{</span>
+    param<span class="token operator">:</span> Identifier <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'y'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    body<span class="token operator">:</span> Identifier <span class="token punctuation">{</span> name<span class="token operator">:</span> <span class="token string">'y'</span> <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h3 id="42-parser-implementation">4.2. Parser implementation</h3>
+<p>Now the we have our AST nodes, we can use them to construct the actual tree. Here are the parsing methods based on the production rules in the grammar.</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token function">term</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// Term ::= LAMBDA LCID DOT Term</span>
+  <span class="token comment">//        | Application</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">skip</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LAMBDA</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> id <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">AST<span class="token punctuation">.</span>Identifier</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">token</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LCID</span><span class="token punctuation">)</span><span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">DOT</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">const</span> term <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">term</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> <span class="token keyword">new</span> <span class="token class-name">AST<span class="token punctuation">.</span>Abstraction</span><span class="token punctuation">(</span>id<span class="token punctuation">,</span> term<span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>  <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">application</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">application</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// Application ::= Atom Application'</span>
+  <span class="token keyword">let</span> lhs <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">atom</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+  <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment">// Application' ::= Atom Application'</span>
+    <span class="token comment">//                | ε</span>
+    <span class="token keyword">const</span> rhs <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">atom</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>rhs<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">return</span> lhs<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+      lhs <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">AST<span class="token punctuation">.</span>Application</span><span class="token punctuation">(</span>lhs<span class="token punctuation">,</span> rhs<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">atom</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// Atom ::= LPAREN Term RPAREN</span>
+  <span class="token comment">//        | LCID</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">skip</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LPAREN</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> term <span class="token operator">=</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">term</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">RPAREN</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">match</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">RPAREN</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> term<span class="token punctuation">;</span>
+  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">next</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LCID</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">const</span> id <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">AST<span class="token punctuation">.</span>Identifier</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>lexer<span class="token punctuation">.</span><span class="token function">token</span><span class="token punctuation">(</span>Token<span class="token punctuation">.</span><span class="token constant">LCID</span><span class="token punctuation">)</span><span class="token punctuation">.</span>value<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token keyword">return</span> id<span class="token punctuation">;</span>
+  <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+    <span class="token keyword">return</span> <span class="token keyword">undefined</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<h2 id="5-evaluation">5. Evaluation</h2>
+<p>Now that we have our AST, we can use it to evaluate the program, but in order to know what should our interpreter look like, we first need to look at λ-calculus’ evaluation rules.</p>
+<h3 id="51-evaluation-rules">5.1. Evaluation rules</h3>
+<p>First we need to define what are our terms (which can be inferred from the grammar) and what are our values.</p>
+<p>Our terms are:</p>
+<pre class="language-python"><code data-astro-raw="" class="language-python">t1 t2   <span class="token comment"># Application</span>
+
+λx<span class="token punctuation">.</span> t1  <span class="token comment"># Abstraction</span>
+
+x       <span class="token comment"># Identifier</span></code></pre>
+<p>Yes, these are exactly the same as the nodes from our AST! But which of these are values?</p>
+<p>Values are terms that are in its final form, i.e. they can’t be evaluated any further. In this case, the only terms that are also values are abstractions (you can’t evaluated a function unless it’s called).</p>
+<p>The actual evaluation rules are as following:</p>
+<pre class="language-null"><code data-astro-raw="" class="language-null">1)       t1 -&gt; t1'
+     _________________
+
+      t1 t2 -&gt; t1' t2
+
+
+2)       t2 -&gt; t2'
+     ________________
+
+      v1 t2 -&gt; v1 t2'
+
+
+3)    (λx. t12) v2 -&gt; [x -&gt; v2]t12</code></pre>
+<p>Here’s how we can read each rule:</p>
+<ol>
+<li>If <code data-astro-raw="">t1</code> is a term that evaluates to <code data-astro-raw="">t1'</code>, <code data-astro-raw="">t1 t2</code> will evaluate to <code data-astro-raw="">t1' t2</code>. i.e. the left-hand side of an application is evaluated first.</li>
+<li>If <code data-astro-raw="">t2</code> is a term that evaluates to <code data-astro-raw="">t2'</code>, <code data-astro-raw="">v1 t2</code> will evaluate to <code data-astro-raw="">v1 t2'</code>. Notice that here the left-hand side is <code data-astro-raw="">v1</code> instead of <code data-astro-raw="">t1</code>, that means that it’s a value, and can’t be evaluated any further, i.e. only when we’re done with the left-hand side we’ll evaluate the right one.</li>
+<li>The result of application <code data-astro-raw="">(λx. t12) v2</code> is the same as effectively replacing all occurrences of <code data-astro-raw="">x</code> in <code data-astro-raw="">t12</code> with <code data-astro-raw="">v2</code>. Notice that both sides have to be values before evaluating an application.</li>
+</ol>
+<h3 id="52-interpreter">5.2. Interpreter</h3>
+<p>The interpreter is the piece that follows the evaluation rules to reduce a program to a value. All we have to now is translate the rules above into JavaScript:</p>
+<p>First we’ll define a simple helper to tell us when a node is a value:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">isValue</span> <span class="token operator">=</span> <span class="token parameter">node</span> <span class="token operator">=&gt;</span> node <span class="token keyword">instanceof</span> <span class="token class-name">AST<span class="token punctuation">.</span>Abstraction</span><span class="token punctuation">;</span></code></pre>
+<p>That’s it: if it’s an abstraction, it’s value, otherwise, it’s not.</p>
+<p>And here’s the bit of the interpreter that matters:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">const</span> <span class="token function-variable function">eval</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">ast<span class="token punctuation">,</span> context<span class="token operator">=</span><span class="token punctuation">{</span><span class="token punctuation">}</span></span><span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+  <span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">if</span> <span class="token punctuation">(</span>ast <span class="token keyword">instanceof</span> <span class="token class-name">AST<span class="token punctuation">.</span>Application</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+      <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isValue</span><span class="token punctuation">(</span>ast<span class="token punctuation">.</span>lhs<span class="token punctuation">)</span> <span class="token operator">&amp;&amp;</span> <span class="token function">isValue</span><span class="token punctuation">(</span>ast<span class="token punctuation">.</span>rhs<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        context<span class="token punctuation">[</span>ast<span class="token punctuation">.</span>lhs<span class="token punctuation">.</span>param<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> ast<span class="token punctuation">.</span>rhs<span class="token punctuation">;</span>
+        ast <span class="token operator">=</span> <span class="token function">eval</span><span class="token punctuation">(</span>ast<span class="token punctuation">.</span>lhs<span class="token punctuation">.</span>body<span class="token punctuation">,</span> context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isValue</span><span class="token punctuation">(</span>ast<span class="token punctuation">.</span>lhs<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+        ast<span class="token punctuation">.</span>rhs <span class="token operator">=</span> <span class="token function">eval</span><span class="token punctuation">(</span>ast<span class="token punctuation">.</span>rhs<span class="token punctuation">,</span> Object<span class="token punctuation">.</span><span class="token function">assign</span><span class="token punctuation">(</span><span class="token punctuation">{</span><span class="token punctuation">}</span><span class="token punctuation">,</span> context<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+        ast<span class="token punctuation">.</span>lhs <span class="token operator">=</span> <span class="token function">eval</span><span class="token punctuation">(</span>ast<span class="token punctuation">.</span>lhs<span class="token punctuation">,</span> context<span class="token punctuation">)</span><span class="token punctuation">;</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token keyword">if</span> <span class="token punctuation">(</span>ast <span class="token keyword">instanceof</span> <span class="token class-name">AST<span class="token punctuation">.</span>Identifier</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+       ast <span class="token operator">=</span> context<span class="token punctuation">[</span>ast<span class="token punctuation">.</span>name<span class="token punctuation">]</span><span class="token punctuation">;</span>
+    <span class="token punctuation">}</span> <span class="token keyword">else</span> <span class="token punctuation">{</span>
+      <span class="token keyword">return</span> ast<span class="token punctuation">;</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">;</span></code></pre>
+<p>It’s a little bit dense, but if you squeeze your eyes really hard, you can see the encoded evaluation rules:</p>
+<ul>
+<li>First we check if it’s an application: if it is, we can evaluate it.
+<ul>
+<li>If both sides of the abstraction are values, we can simple replace all the ocurrences of <code data-astro-raw="">x</code> with the value being applied; (3)</li>
+<li>Otherwise, if the left-hand side is value, we evaluate right-hand side of the application; (2)</li>
+<li>If none of the above applies, we just evaluate the left-hand side of the application. (1)</li>
+</ul>
+</li>
+<li>Now, if the next node is an identifier, we simply replace it with the value bound to the variable it represents.</li>
+<li>Lastly, if no rules applies to the AST, that means that it’s already a value, and then we return it.</li>
+</ul>
+<p>The other thing worth noting is the context. The context holds the bindings from names to values (AST nodes), e.g. when you call a function, you’re binding the argument you’re passing to the variable that the function expects, and then evaluating the function’s body.</p>
+<p>Cloning the context ensures that once we have finished evaluating the right-hand side, and the variables that were bound will go out of scope, since we’re still holding onto the original context.</p>
+<p>If we didn’t clone the context a binding introduced in the right-hand side of an application could leak, and be accessible in the left-hand side, which it shouldn’t. Consider the following:</p>
+<pre class="language-null"><code data-astro-raw="" class="language-null">(λx. y) ((λy. y) (λx. x))</code></pre>
+<p>This is clearly an invalid program: the identifier <code data-astro-raw="">y</code>, used in the body of the left-most abstraction, is unbound. But let’s look at what the evaluation would look like if we didn’t clone the context:</p>
+<p>The left-hand side is already a value, so we evaluate the right-hand side. It’s an application, so it’ll bind <code data-astro-raw="">(λx .x)</code> to <code data-astro-raw="">y</code>, and evaluate the body of <code data-astro-raw="">(λy. y)</code>, which is <code data-astro-raw="">y</code> itself, so it’ll just evaluate to <code data-astro-raw="">(λx. x)</code>.</p>
+<p>At this point we’re finished with the right-hand side, as it’s a value, and <code data-astro-raw="">y</code> has now gone out of scope, since we exited <code data-astro-raw="">(λy. y)</code>, but if we didn’t clone the context when evaluating it, we’d have mutated the original context, and the binding would leak, and <code data-astro-raw="">y</code> would have value <code data-astro-raw="">(λx. x)</code>, which would end up being, erroneously, the result of the program.</p>
+<h2 id="6-printing">6. Printing</h2>
+<p>Ok, now we are almost done: we can already reduce a program to a value, all we need to do now is to find a way to present this value.</p>
+<p>An easy way of doing that is by adding a <code data-astro-raw="">toString</code> method to every AST node:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token comment">/* Abstraction */</span> <span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">(λ</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">this</span><span class="token punctuation">.</span>param<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">. </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">this</span><span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">)</span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">/* Application */</span> <span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">this</span><span class="token punctuation">.</span>lhs<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token string"> </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${</span><span class="token keyword">this</span><span class="token punctuation">.</span>rhs<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">/* Identifier */</span> <span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> <span class="token keyword">this</span><span class="token punctuation">.</span>name<span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+<p>Now we can just call <code data-astro-raw="">toString</code> in the root node of the result, and it’ll print all of its children recursively in order to generate its string representation.</p>
+<h2 id="7-putting-it-all-together">7. Putting it all together</h2>
+<p>We’ll need a runner script that will wire all this parts together, the code should be something like:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token comment">// assuming you have some source</span>
+<span class="token keyword">const</span> source <span class="token operator">=</span> <span class="token string">'(λx. λy. x) (λx. x) (λy. y)'</span><span class="token punctuation">;</span>
+
+<span class="token comment">// wire all the pieces together</span>
+<span class="token keyword">const</span> lexer <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Lexer</span><span class="token punctuation">(</span>source<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> parser <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Parser</span><span class="token punctuation">(</span>lexer<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> ast <span class="token operator">=</span> parser<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> result <span class="token operator">=</span> Interpreter<span class="token punctuation">.</span><span class="token function">eval</span><span class="token punctuation">(</span>ast<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// stringify the resulting node and print it</span>
+console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>result<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<h2 id="source-code">Source code</h2>
+<p>The full implementation can be found on Github: <a href="https://github.com/tadeuzagallo/lc-js">github.com/tadeuzagallo/lc-js</a></p>
+<h4 id="thats-all">That’s all!</h4>
+<p>Thanks for reading, and as usual, any feedback is more than welcome! 😊</p>
+        </div>
+
+        <footer class="footer astro-ZRE6QY23">
+          <section class="share astro-ZRE6QY23">
+            <button class="share-button astro-ZRE6QY23" aria-label="Share on Twitter" title="Share on Twitter">
+              <svg class="share-icon astro-ZRE6QY23" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1684 408q-67 98-162 167 1 14 1 42 0 130-38 259.5t-115.5 248.5-184.5 210.5-258 146-323 54.5q-271 0-496-145 35 4 78 4 225 0 401-138-105-2-188-64.5t-114-159.5q33 5 61 5 43 0 85-11-112-23-185.5-111.5t-73.5-205.5v-4q68 38 146 41-66-44-105-115t-39-154q0-88 44-163 121 149 294.5 238.5t371.5 99.5q-8-38-8-74 0-134 94.5-228.5t228.5-94.5q140 0 236 102 109-21 205-78-37 115-142 178 93-10 186-50z" class="astro-ZRE6QY23"></path>
+              </svg>
+              <span class="astro-ZRE6QY23">Share on Twitter</span>
+            </button>
+          </section>
+
+          <div id="disqus_thread" class="astro-ZRE6QY23"></div>
+
+          <script data-title="A λ-calculus interpreter" data-slug="writing-a-lambda-calculus-interpreter-in-javascript-original" data-permalink="https://tadeuzagallo.com/blog/writing-a-lambda-calculus-interpreter-in-javascript-original/">
+            const { title, slug, permalink } = document.currentScript.dataset;
+            var disqus_config = function () {
+              this.page.title = title;
+              this.page.identifier = slug;
+              this.page.url = permalink; 
+            };
+            (function() { // DON'T EDIT BELOW THIS LINE
+            var d = document, s = d.createElement('script');
+            s.src = 'https://tadeuzagallo.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+            })();
+          </script>
+          <script data-twitterurl="https://twitter.com/intent/tweet?text=&quot;A λ-calculus interpreter in less than 200 lines of JavaScript&quot; https://tadeuzagallo.com/blog/writing-a-lambda-calculus-interpreter-in-javascript-original/ via @tadeuzagallo&amp;hashtags=interpreter,fp,javascript">
+            const { twitterurl } = document.currentScript.dataset;
+            document.querySelector('.share-button').addEventListener('click', e => {
+              e.preventDefault();
+              window.open(twitterurl, 'twitter-share', 'width=800,height=800');
+            });
+          </script>
+        </footer>
+      </div>
+    </div>
+  
+
+
+</body></html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html><html lang="en" class="astro-ZRE6QY23"><head>
+    
+<!-- Global Metadata -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<link rel="shortcut icon" type="image/png" href="/blog/favicon.ico">
+
+<!-- Primary Meta Tags -->
+<title>Optimisations in Verve by Tadeu Zagallo</title>
+<meta name="title" content="Optimisations in Verve by Tadeu Zagallo">
+<meta name="description" content="Premature optimisations for fun!">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:title" content="Optimisations in Verve by Tadeu Zagallo">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://tadeuzagallo.com/blog/optimisations-in-verve/">
+<meta property="og:description" content="Premature optimisations for fun!">
+<meta property="og:image" content="https://tadeuzagallo.com/blog/images/verve-logo.jpg">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://tadeuzagallo.com/blog/optimisations-in-verve/">
+<meta property="twitter:title" content="Optimisations in Verve by Tadeu Zagallo">
+<meta property="twitter:description" content="Premature optimisations for fun!">
+<meta property="twitter:image" content="https://tadeuzagallo.com/blog/images/verve-logo.jpg">
+<meta property="twitter:site" content="@tadeuzagallo">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&amp;display=swap" rel="stylesheet">
+
+<!-- Analytics -->
+<script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-47264623-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-47264623-1');
+</script>
+
+<link rel="stylesheet" href="../assets/blog.0106c48b.css"><link rel="stylesheet" href="../assets/code.28b7c1f4.css"><link rel="stylesheet" href="../assets/index.aa768e43.css">
+
+		
+
+    
+  </head>
+  <body>
+    <div class="wrapper astro-ZRE6QY23">
+      <a class="gohome astro-ZRE6QY23" href="/blog/">All posts</a>
+      <div class="blog-post astro-ZRE6QY23">
+        <header class="header astro-ZRE6QY23">
+          <h1 class="astro-ZRE6QY23">Optimisations in Verve</h1>
+          <p class="desc astro-ZRE6QY23">Premature optimisations for fun!</p>
+          <time class="date-published astro-ZRE6QY23" datetime="September 30, 2016">
+            30 Sep 2016
+          </time>
+        </header>
+
+        <div class="blog-post-text astro-ZRE6QY23">
+          <p>I have definitely heard that “Premature optimisation is the root of all evil” and all that stuff, but well, sometimes optimising things can be fun.</p>
+<p>I started <a href="https://github.com/tadeuzagallo/verve-lang">Verve</a> as a Virtual Machine (VM) rather than as a programming language, just for fun, since I was starting to dig into <a href="http://trac.webkit.org/wiki/JavaScriptCore">JavaScriptCore</a> (JSC), and thought it’d be nice to try implementing a small VM.</p>
+<h2 id="mvp">MVP</h2>
+<p>My first milestone was the easiest possible, execute a simple program, like “Hello, World”. However, in order to achieve that, I needed to write this program somehow, and I chose to start with a lisp-like simple language, since it’s as easy to parse as it gets.</p>
+<pre class="language-clojure"><code data-astro-raw="" class="language-clojure"><span class="token punctuation">(</span><span class="token keyword">print</span> <span class="token string">"Hello, World!"</span><span class="token punctuation">)</span></code></pre>
+<p>Since my main goal was building the VM, I started with some kind of bytecode right away, rather than interpreting the AST at first.</p>
+<p>As soon as my compiler front-end was smart enough to spit out some bytecode for simple function calls I jumped straight into the fun part: writing the interpreter.</p>
+<p>It started out the simplest way I could think of: a big switch on the opcode (a simple <code data-astro-raw="">int</code> in this case). <a href="https://github.com/tadeuzagallo/verve-lang/blob/ded677d442184b8b784dce354884d81fc807a772/compiler/vm.cc#L72">original interpreter</a></p>
+<p>I was pretty happy with the result, given that everything kinda worked and I had only spent a few days. But I needed some new milestone to keep the motivation going.</p>
+<h2 id="fib40">fib(40)</h2>
+<p>And that would be my next milestone: beat JSC on <code data-astro-raw="">fib(40)</code>. I know, it’s meaningless, and please, <strong>I’m not saying my dummy VM is faster than ANY real VM</strong>, but still, seemed like a fun goal.</p>
+<pre class="language-rust"><code data-astro-raw="" class="language-rust"><span class="token comment">// the Fibonacci implementation</span>
+<span class="token keyword">fn</span> <span class="token function-definition function">fib</span><span class="token punctuation">(</span>n<span class="token punctuation">:</span> int<span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> int <span class="token punctuation">{</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>n <span class="token operator">&lt;</span> <span class="token number">2</span><span class="token punctuation">)</span> n
+  <span class="token keyword">else</span> <span class="token function">fib</span><span class="token punctuation">(</span>n<span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token function">fib</span><span class="token punctuation">(</span>n<span class="token operator">-</span><span class="token number">2</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span></code></pre>
+<p>At first, I admit I thought it wouldn’t be too hard: JSC is a full-featured VM, but it has to do way more work than my rather simplistic VM:</p>
+<ul>
+<li>First of all: I wasn’t considering the JIT, only interpreter vs interpreter.</li>
+<li>JavaScript is not a simple language to parse, I only had my lisp-like dummy language.</li>
+<li>It deals with caches, profiles, counters, and many other things, which add overhead.</li>
+<li>It has much more code, which affects load time, cache locality, etc.</li>
+<li>The interpreter is written in a high-level assembly language, which doesn’t allow abusing platform specific registers.</li>
+</ul>
+<p>So I decided to give it a shot, and see how would it compare. Of course, at first it wouldn’t even compile on my VM, but after a few days, I finally got it working.</p>
+<p>And how fast was it? I couldn’t even know, it took so long that I never saw it finish (definitely over 30min).</p>
+<p>Damn, it was <strong>at least 15x slower</strong> than <a href="http://tadeuzagallo.com/blog/writing-an-x86-emulator-in-javascript/">my x86 emulator</a>, written in JavaScript itself!</p>
+<h2 id="optimisations">Optimisations</h2>
+<p>Ok, so enough with history time… I’ll mention 3 key areas I worked on optimising:</p>
+<ul>
+<li>Scope lookup</li>
+<li>Interpreter loop</li>
+<li>Function calls</li>
+</ul>
+<p>These cover pretty much all the time spent in a simple program such as <code data-astro-raw="">fib(40)</code>. I never had any issues with parsing, despite having bits of the parser I know are <em>far</em> from optimal.</p>
+<h2 id="scope-lookup">Scope lookup</h2>
+<p>First of all, by scope lookup I mean all the time spent on generating scopes, deleting scopes, and actually looking values up in the scope.</p>
+<p>The scope is (TL;DR) where the variables are stored: You start with the global scope, and every function introduces a new scope, i.e. the variables defined inside the function can’t be accessed out of it.</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token comment">// global scope</span>
+<span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token comment">// scope a</span>
+  <span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token comment">// scope b</span>
+  <span class="token punctuation">}</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span></code></pre>
+<p>Verve has always had <a href="https://en.wikipedia.org/wiki/Scope_(computer_science)#Lexical_scoping">lexical scoping</a>:</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">;</span>
+<span class="token keyword">var</span> plusA <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token keyword">function</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+ <span class="token keyword">var</span> a <span class="token operator">=</span> <span class="token number">10</span><span class="token punctuation">;</span>
+ <span class="token keyword">return</span> <span class="token keyword">function</span><span class="token punctuation">(</span><span class="token parameter">b</span><span class="token punctuation">)</span> <span class="token punctuation">{</span> <span class="token keyword">return</span> b <span class="token operator">+</span> a<span class="token punctuation">;</span> <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">plusA</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span> <span class="token comment">// 15</span></code></pre>
+<p>Here the function <code data-astro-raw="">plusA</code> can access <code data-astro-raw="">a</code>, even though it’s declared in its parent scope, rather than in its body. And when the function is called, it still looks up the scope where it was defined, rather than where it was called from. This means that functions have to keep track of their enclosing scope.</p>
+<p>My initial implementation was, again, the simplest I could think about: A <code data-astro-raw="">Closure</code> was an object that would hold a pointer to a <code data-astro-raw="">Scope</code>, and the <code data-astro-raw="">Scope</code> was a linked list so you could look for a variable up through the scope chain.</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token comment">// pseudocode</span>
+
+<span class="token keyword">class</span> <span class="token class-name">Closure</span> <span class="token punctuation">{</span>
+  scope<span class="token operator">:</span> Scope<span class="token punctuation">,</span>
+  fn<span class="token operator">:</span> Function
+<span class="token punctuation">}</span>
+
+<span class="token keyword">class</span> <span class="token class-name">Scope</span> <span class="token punctuation">{</span>
+  parentScope<span class="token operator">:</span> Scope<span class="token punctuation">,</span>
+  values<span class="token operator">:</span> Map<span class="token operator">&lt;</span>String<span class="token punctuation">,</span> Value<span class="token operator">&gt;</span><span class="token punctuation">,</span>
+
+  <span class="token function">get</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span> <span class="token punctuation">{</span> values<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span> <span class="token operator">||</span> parentScope<span class="token punctuation">.</span><span class="token function">get</span><span class="token punctuation">(</span>key<span class="token punctuation">)</span> <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+<p>In order to deal with the case where a <code data-astro-raw="">Closure</code> lives longer than its <code data-astro-raw="">Scope</code> (e.g. a <code data-astro-raw="">Closure</code> that returns a <code data-astro-raw="">Closure</code>), I wrapped it in C++ shared pointers: the <code data-astro-raw="">Scope</code> remains alive as long as there’s anything pointing to it. Three things could be pointing to a scope:</p>
+<ul>
+<li>It could be the scope for the code the VM was currently executing</li>
+<li>It could be a parent of the scope mentioned above</li>
+<li>A <code data-astro-raw="">Closure</code> could be holding onto it.</li>
+</ul>
+<h2 id="optimising-the-scope">Optimising the Scope</h2>
+<p>The first optimisation follows my favorite motto: Nothing is faster than doing nothing.</p>
+<p>We only need this whole Scope thing if the function actually uses it! During parsing we can analyse all the variables used in the function, and if it doesn’t reference anything from the parent scope, we don’t need to keep track of the enclosing scope at all.</p>
+<p>This saves creating new scopes on every function invocation, but it doesn’t speed up lookups in the scope: <code data-astro-raw="">fib(40)</code> is recursive, and for every invocation of <code data-astro-raw="">fib(n)</code> we’ll look <code data-astro-raw="">fib</code> up twice, one for <code data-astro-raw="">fib(n-1)</code> and one for <code data-astro-raw="">fib(n-2)</code>.</p>
+<p>In order to speed up the lookups, I worked on a few optimisations:</p>
+<ul>
+<li><code data-astro-raw="">std::shared_ptr</code> wasn’t fast enough. It was just way more robust than what I needed… Since it was only used in a few places, replacing it with a simple <code data-astro-raw="">refCount</code> field and doing manual reference counting worked just as well and was much faster. <a href="https://github.com/tadeuzagallo/verve-lang/commit/c7ac75cd3858d859c681b79c57f8d43f02b164b0">commit</a></li>
+<li><code data-astro-raw="">std::unordered_map</code> wasn’t fast enough. Same thing. Most of the scopes hold very few values for my small programs, replacing the std implementation with a simple hash map built with a single small array and quick hashing by just using the least significant bits of the pointer was way faster. <em>(part of the commit above)</em></li>
+<li>Going to C++ for every lookup was too slow: Once I had optimised the interpreter (read below) going to C++ meant saving the registers state and aligning the stack. Moving the whole lookup into <code data-astro-raw="">asm</code> was faster. <a href="https://github.com/tadeuzagallo/verve-lang/commit/055e3f7cbd890b847dc640fedb44969f4279d2fd">commit</a></li>
+<li>Caching the lookups: Adding a side table as a linear cache of the lookups, combined with the <code data-astro-raw="">asm</code> implementation of the lookup, made it so that cache hits only take <em>2 instructions</em>! <a href="https://github.com/tadeuzagallo/verve-lang/commit/c4e9a3e0166ac4ac4da2dd562a380a9e720b2fe4">commit</a></li>
+</ul>
+<p>Ok, that’s enough about scopes…</p>
+<h2 id="interpreter-loop">Interpreter loop</h2>
+<p>As mentioned above I started with a big switch statement in C++, but I already knew I wanted to write the interpreter in Assembly. Some people don’t agree, but I find it quite fun!</p>
+<p>Going to assembly has many benefits that can lead to massive performance wins, for example:</p>
+<ul>
+<li>Fine-grained control over the stack layout: no need for keeping a virtual stack in C++!</li>
+<li>Control over registers: Writing platform specific assembly means that I can use every single callee-saved register to keep around the data I constantly need to access.</li>
+</ul>
+<p>I considered two options when I was writing the interpreter:</p>
+<ol>
+<li>JSC’s model: At the end of every opcode implementation, we check what is the next opcode and jump to its implementation.</li>
+<li>“Traditional model”: Still have a central loop, but optimise it by hand in assembly.</li>
+</ol>
+<p>I started with JSC’s model, since it was what inspired me to write the VM in the first place, but there were a few downsides raised by others I talked to:</p>
+<ul>
+<li>It makes the bytecode big - you need the opcodes to be the address of their actual implementation, which means that you need word-size instructions</li>
+<li>It messes up branch prediction: at the end of every opcode you jump to a random address taken from a random location in the heap.</li>
+</ul>
+<p>Upon hearing that, I thought I’d try switching to the traditional model and see whether it was actually faster.</p>
+<p>The loop would start by using the next opcode’s value to calculate the offset into a list of jumps that would follow. But that was not really efficient, since it’d take the pointer arithmetic + two jumps to get to the desired opcode. <a href="https://github.com/tadeuzagallo/verve-lang/commit/1e4989ccf6d76a13c888a122be8c9b1f79ce99e3">source code</a></p>
+<p>My next step was disassembling a switch and looking at how the compiler implemented jump tables, and it was much better than my code: Instead of a list of jumps, you put the relative addresses of the opcodes after the loop, use the value of the opcode to read the right address, and add that to current instruction pointer to get the absolute address of the function. <a href="https://github.com/tadeuzagallo/verve-lang/commit/f74b753b5c0ae67c5acb0f2a4036f36ca87a7421">source code</a></p>
+<p>I kept on battling, with some smaller optimisations (even though quite effective sometimes), such as <a href="https://github.com/tadeuzagallo/verve-lang/commit/df387375010af7b2e834c5bfc04b0dc8e168892a">reordering methods based on “hotness”</a> and <a href="https://github.com/tadeuzagallo/verve-lang/commit/69d38b87dd55a2ba4425421b72cd3488edfb0543">refactoring to remove some expensive instructions</a>, but it still wasn’t fast enough…</p>
+<p>In a desperate attempt I tried to <a href="https://github.com/tadeuzagallo/verve-lang/commit/2cb7913d062f7ae4c2d981310b05ec63a95de0c6">rollback to the JSC-style interpreter</a>, and to my surprise it was <strong>much</strong> faster. Of course I didn’t just throw away all the optimisations I worked on while using the traditional loop implementation, but switching back was what pushed the interpreter from being about as fast as JSC, to being faster.</p>
+<h2 id="fast-closures">Fast closures</h2>
+<p><code data-astro-raw="">fib(40)</code> is nothing more than just calling the same function over and over again, <em>billions</em> of times. It’d be great if function calls were fast!</p>
+<p>In my naive implementation, every function implemented in Verve would be represented in memory by the Closure object I mentioned above, that has a reference to the Function implementation and another to it’s enclosing scope. When you make a call, we lookup in the scope for the callee, check whether it’s a closure, and if so, we jump to C++ so it can “prepare the closure”.</p>
+<p>Preparing the closure means: checking whether it needs a new scope, and finding the implementation’s offset in the bytecode.</p>
+<p>But, if we can figure out at parsing time whether a closure accesses its parent scope, we can make so that functions that don’t only have their implementation offset it the bytecode.</p>
+<p>The idea of fast closures is exactly that: a tagged pointer which only contains the offset of the function. For memory alignment reasons, some of the least significant bits of a valid pointer will always be zero, so we set the least significant bit to one in order to indicate that it’s not an actual pointer, and right next to it we add the functions offset in the bytecode, shifted to left by one.</p>
+<em>Real closure:</em>
+ 0x00FFF13320
+<br>
+
+
+<em>Fast closure:</em>
+ 0x0000000321 
+<em>// the address is 0x0190 (0x0321 &gt;&gt; 1)</em>
+<small>
+<em>note: As I wrote the previous paragraph I realised there’s a bug: fast closures should also not contain nested closures, otherwise the parent scope will be polluted. The type checker should catch it nonetheless, you could bypass it, but, well…</em>
+</small>
+<h2 id="benchmarking">Benchmarking</h2>
+<p>Given the following implementation of <code data-astro-raw="">fib</code> in Verve</p>
+<pre class="language-rust"><code data-astro-raw="" class="language-rust"><span class="token keyword">fn</span> <span class="token function-definition function">fib</span><span class="token punctuation">(</span>n<span class="token punctuation">:</span> int<span class="token punctuation">)</span> <span class="token punctuation">-&gt;</span> int <span class="token punctuation">{</span>
+  <span class="token keyword">if</span> <span class="token punctuation">(</span>n <span class="token operator">&lt;</span> <span class="token number">2</span><span class="token punctuation">)</span> n
+  <span class="token keyword">else</span> <span class="token function">fib</span><span class="token punctuation">(</span>n <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token function">fib</span><span class="token punctuation">(</span>n <span class="token operator">-</span> <span class="token number">2</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">print</span><span class="token punctuation">(</span><span class="token function">fib</span><span class="token punctuation">(</span><span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">)</span></code></pre>
+<p>And the following implementation in JavaScript</p>
+<pre class="language-javascript"><code data-astro-raw="" class="language-javascript"><span class="token keyword">function</span> <span class="token function">fib</span><span class="token punctuation">(</span><span class="token parameter">n</span><span class="token punctuation">)</span> <span class="token punctuation">{</span>
+  <span class="token keyword">return</span> n <span class="token operator">&lt;</span> <span class="token number">2</span>
+    <span class="token operator">?</span> n
+    <span class="token operator">:</span> <span class="token function">fib</span><span class="token punctuation">(</span>n <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token function">fib</span><span class="token punctuation">(</span>n <span class="token operator">-</span> <span class="token number">2</span><span class="token punctuation">)</span>
+<span class="token punctuation">}</span>
+
+<span class="token function">print</span><span class="token punctuation">(</span><span class="token function">fib</span><span class="token punctuation">(</span><span class="token number">40</span><span class="token punctuation">)</span><span class="token punctuation">)</span></code></pre>
+<p>Verve, on <a href="https://github.com/tadeuzagallo/verve-lang/commit/5f735b28221542a70af676d832abb1cb68015ad5">this commit*</a>, takes <code data-astro-raw="">8.247s</code> on an <em>avg of 5 runs</em>.</p>
+<p>JSC, version <em>602.1.50</em>, with <code data-astro-raw="">JSC_useJIT=0</code> takes <code data-astro-raw="">14.558s</code> on an <em>avg of 5 runs</em>.</p>
+<p>Both were tested on an Early-2016 MacBook running macOS 10.12.</p>
+<p><em><code data-astro-raw="">*</code> This commit was picked as I stopped working on perf ever since. Lately I’ve been having more fun with making it a better language, with proper type checking instead.</em></p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Optimising things can be fun, but be mindful when optimising real world projects. Most of the time optimisations are about trading readability and mantainability for speed, which doesn’t always pay off.</p>
+<p>All the optimisations mentioned here weren’t picked at random, even though it’s a side project, everything was carefully profiled and optimised, before and <em>after</em> optimising - things don’t always go as you expected.</p>
+<p>Other than that, I don’t mean to prove anthing - this is not a real benchmark, and there’s no way of comparing the Verve VM in its current state to any full-featured VM… I just wrote the post for the same reason I wrote the code: for fun, and hoping it might be helpful, or at least give some inspiration, for someone at some point.</p>
+<p>Thanks for reading! :)</p>
+        </div>
+
+        <footer class="footer astro-ZRE6QY23">
+          <section class="share astro-ZRE6QY23">
+            <button class="share-button astro-ZRE6QY23" aria-label="Share on Twitter" title="Share on Twitter">
+              <svg class="share-icon astro-ZRE6QY23" viewBox="0 0 1792 1792" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1684 408q-67 98-162 167 1 14 1 42 0 130-38 259.5t-115.5 248.5-184.5 210.5-258 146-323 54.5q-271 0-496-145 35 4 78 4 225 0 401-138-105-2-188-64.5t-114-159.5q33 5 61 5 43 0 85-11-112-23-185.5-111.5t-73.5-205.5v-4q68 38 146 41-66-44-105-115t-39-154q0-88 44-163 121 149 294.5 238.5t371.5 99.5q-8-38-8-74 0-134 94.5-228.5t228.5-94.5q140 0 236 102 109-21 205-78-37 115-142 178 93-10 186-50z" class="astro-ZRE6QY23"></path>
+              </svg>
+              <span class="astro-ZRE6QY23">Share on Twitter</span>
+            </button>
+          </section>
+
+          <div id="disqus_thread" class="astro-ZRE6QY23"></div>
+
+          <script data-title="Optimisations in Verve" data-slug="optimisations-in-verve" data-permalink="https://tadeuzagallo.com/blog/optimisations-in-verve/">
+            const { title, slug, permalink } = document.currentScript.dataset;
+            var disqus_config = function () {
+              this.page.title = title;
+              this.page.identifier = slug;
+              this.page.url = permalink; 
+            };
+            (function() { // DON'T EDIT BELOW THIS LINE
+            var d = document, s = d.createElement('script');
+            s.src = 'https://tadeuzagallo.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+            })();
+          </script>
+          <script data-twitterurl="https://twitter.com/intent/tweet?text=&quot;Optimisations in Verve: Premature optimisations for fun!&quot; https://tadeuzagallo.com/blog/optimisations-in-verve/ via @tadeuzagallo&amp;hashtags=interpreter,verve,x86,asm">
+            const { twitterurl } = document.currentScript.dataset;
+            document.querySelector('.share-button').addEventListener('click', e => {
+              e.preventDefault();
+              window.open(twitterurl, 'twitter-share', 'width=800,height=800');
+            });
+          </script>
+        </footer>
+      </div>
+    </div>
+  
+
+
+</body></html>
