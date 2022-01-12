@@ -6,6 +6,9 @@ set -e
 # build
 npm run build
 
+# hack to unregister service worker for old blog
+cp service-worker.js dist
+
 # navigate into the build output directory
 cd dist
 
