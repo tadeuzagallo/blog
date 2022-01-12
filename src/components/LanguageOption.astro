@@ -1,6 +1,6 @@
 ---
 
-const { target, lang, t } = Astro.props;
+const { target, lang, t, count } = Astro.props;
 
 const active = target === lang
 let className = active ? "disabled" : "enabled";
@@ -28,6 +28,6 @@ className = `target ${className}`;
 </style>
 
   {active
-    ? <div class={className}>{t(target)}</div>
-    : <a class={className} href=`/blog/${target}`>{t(target)}</a>
+    ? <div class={className}>{t(target)} ({count})</div>
+    : <a class={className} href=`/blog/${target}`>{t(target)} ({count})</a>
   }

@@ -7,14 +7,23 @@ import i18n from '../utils/i18n.js';
 const { lang } = Astro.props;
 const { t } = i18n(lang);
 
+const counts = {
+  en: 0,
+  pt: 0,
+};
+
 const allPosts = Astro.fetchContent('../posts/*.md');
-const visiblePosts = allPosts.filter(post => post.lang === lang && !post.unlisted);
-const sortedPosts = visiblePosts.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+const visiblePosts = allPosts.filter(post => !post.unlisted);
+const selectedPosts = visiblePosts.filter(post => post.lang === lang);
+const sortedPosts = selectedPosts.sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+
+for (const post of visiblePosts)
+  ++counts[post.lang];
 
 ---
 
 <>
-  <LanguageSwitcher {lang} {t} />
+  <LanguageSwitcher {lang} {t} {counts} />
 
   <hr class="gradient-hr" />
 

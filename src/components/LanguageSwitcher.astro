@@ -1,7 +1,7 @@
 ---
 import LanguageOption from './LanguageOption.astro';
 
-const { t } = Astro.props;
+const { t, counts } = Astro.props;
 ---
 
 <style>
@@ -26,7 +26,7 @@ const { t } = Astro.props;
 <div class="language-switcher">
   <div class="title">{t('view-articles-lang')}:</div>
   <div class="options">
-    <LanguageOption target="pt" {...Astro.props} />
-    <LanguageOption target="en" {...Astro.props} />
+    <LanguageOption target="pt" {...Astro.props} count={counts.pt}/>
+    <LanguageOption target="en" {...Astro.props} count={counts.en}/>
   </div>
 </div>
