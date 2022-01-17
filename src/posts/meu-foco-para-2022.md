@@ -3,7 +3,7 @@ lang: pt
 title: "Meu foco para 2022"
 date: 2022-01-12 17:38:14
 description: um novo "tema" para a minha carreira
-slug: escrevendo-um-interpretador-de-lambda-calculus-em-javascript
+slug: meu-foco-para-2022
 category:
 - carreira
 - soft_skills
